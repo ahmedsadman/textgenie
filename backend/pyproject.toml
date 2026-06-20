@@ -1,0 +1,14 @@
+[project]
+name = "textgenie-backend"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "pytest",
+]
