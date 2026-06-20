@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS dev
+FROM python:3.12.13-slim AS dev
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -18,7 +18,7 @@ EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 
-FROM python:3.12-slim AS production
+FROM python:3.12.13-slim AS production
 
 RUN groupadd -g 1001 appgroup && \
     useradd -u 1001 -g appgroup -m -d /app -s /bin/false appuser

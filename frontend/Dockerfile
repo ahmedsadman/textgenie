@@ -1,4 +1,4 @@
-FROM node:24-alpine AS dev
+FROM node:24.17.0-alpine AS dev
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ EXPOSE 5173
 CMD ["yarn", "dev"]
 
 
-FROM node:24-alpine AS build
+FROM node:24.17.0-alpine AS build
 
 WORKDIR /app
 
