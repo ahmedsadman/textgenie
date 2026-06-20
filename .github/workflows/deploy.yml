@@ -120,7 +120,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd /deploy/textgenie
+            cd ~/textgenie
             git pull origin main
 
             SERVICES=""
@@ -133,3 +133,4 @@ jobs:
 
             docker compose build $SERVICES
             docker compose up -d $SERVICES
+            docker image prune -f
