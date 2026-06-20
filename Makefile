@@ -1,4 +1,4 @@
-.PHONY: dev dev-build dev-down prod prod-build prod-down logs logs-backend logs-frontend
+.PHONY: dev dev-build dev-down prod prod-build prod-down logs logs-backend logs-frontend migrate generate-migration
 
 dev:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
@@ -26,3 +26,9 @@ logs-backend:
 
 logs-frontend:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f frontend
+
+migrate:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend uv run alembic upgrade head
+
+generate-migration:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend uv run alembic revision --autogenerate -m "$(name)"
