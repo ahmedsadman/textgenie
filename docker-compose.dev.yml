@@ -4,7 +4,7 @@ services:
       context: ./backend
       target: dev
     volumes:
-      - ./backend/app:/app/app
+      - ./backend:/app
     ports:
       - "8001:8000"
     command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -16,7 +16,7 @@ services:
       context: ./frontend
       target: dev
     volumes:
-      - ./frontend/src:/app/src
+      - ./frontend:/app
     ports:
       - "5174:5174"
     depends_on:
