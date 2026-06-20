@@ -27,9 +27,11 @@ jobs:
             backend:
               - 'backend/**'
               - 'docker-compose.yml'
+              - '.github/workflows/**'
             frontend:
               - 'frontend/**'
               - 'docker-compose.yml'
+              - '.github/workflows/**'
 
   backend-test:
     name: backend-test
