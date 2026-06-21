@@ -14,9 +14,7 @@ def list_categories(db: DBSession, user: User) -> list[Category]:
     )
 
 
-def create_category(
-    db: DBSession, user: User, data: CategoryCreateRequest
-) -> Category:
+def create_category(db: DBSession, user: User, data: CategoryCreateRequest) -> Category:
     name = data.name.strip().lower()
     existing = (
         db.query(Category)
