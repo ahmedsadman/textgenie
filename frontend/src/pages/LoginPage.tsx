@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       await apiPost("/auth/login", { email, password });
-      navigate("/dashboard");
+      navigate("/");
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(error.message);

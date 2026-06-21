@@ -2,15 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import RegisterPage from "@/pages/RegisterPage";
-import { renderWithRouter } from "@/test-utils";
-
-function mockFetch(status: number, body: Record<string, unknown>) {
-  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  } as Response);
-}
+import { mockFetch, renderWithRouter } from "@/test-utils";
 
 describe("RegisterPage", () => {
   it("renders all form fields", () => {

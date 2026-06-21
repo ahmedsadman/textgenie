@@ -2,15 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import LoginPage from "@/pages/LoginPage";
-import { renderWithRouter } from "@/test-utils";
-
-function mockFetch(status: number, body: Record<string, unknown>) {
-  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  } as Response);
-}
+import { mockFetch, renderWithRouter } from "@/test-utils";
 
 describe("LoginPage", () => {
   it("renders email and password fields", () => {
@@ -42,7 +34,7 @@ describe("LoginPage", () => {
     });
   });
 
-  it("navigates to dashboard on successful login", async () => {
+  it("navigates to home on successful login", async () => {
     mockFetch(200, {
       id: 1,
       name: "Test User",
@@ -57,7 +49,7 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/dashboard");
+      expect(window.location.pathname).toBe("/");
     });
   });
 });
