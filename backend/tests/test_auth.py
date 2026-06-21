@@ -3,29 +3,7 @@ from datetime import datetime, timedelta, timezone
 from app.config import COOKIE_NAME
 from app.models import Session, User
 from app.services.auth import delete_expired_sessions, hash_password, hash_token
-
-
-def register(
-    client, name="Test User", email="test@example.com", password="password123"
-):
-    return client.post(
-        "/api/auth/register",
-        json={"name": name, "email": email, "password": password},
-    )
-
-
-def login(client, email="test@example.com", password="password123"):
-    return client.post(
-        "/api/auth/login",
-        json={"email": email, "password": password},
-    )
-
-
-def register_and_login(
-    client, name="Test User", email="test@example.com", password="password123"
-):
-    register(client, name=name, email=email, password=password)
-    return login(client, email=email, password=password)
+from tests.conftest import login, register, register_and_login
 
 
 def test_register_success(client):
