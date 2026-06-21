@@ -2,6 +2,10 @@
 
 TextGenie subscribes to your phone's SMS and helps you categorize messages, identify transactions and keep a digital record
 
+## Coding Convention
+- Follow clean coding practices
+- Prefer DRY (Don't Repeat Yourself). Extract shared methods and utilities in common files whenever applicable 
+
 ## Testing
 
 All features should have comprehensive unit tests in place.

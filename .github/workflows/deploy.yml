@@ -136,3 +136,41 @@ jobs:
             docker compose build $SERVICES
             docker compose up -d $SERVICES
             docker image prune -f
+
+      - name: Healthcheck
+        run: |
+          sleep 10
+
+          check_health() {
+            local url=$1
+            local name=$2
+            local status
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url")
+            if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
+              echo "$name: OK ($status)"
+              return 0
+            else
+              echo "$name: FAILED ($status)"
+              return 1
+            fi
+          }
+
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3"
+            failed=0
+            check_health "https://textgenie.muhib.me" "Frontend" || failed=1
+            check_health "https://textgenie.muhib.me/api/health" "Backend" || failed=1
+
+            if [ "$failed" -eq 0 ]; then
+              echo "All healthchecks passed"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              echo "Retrying in 3 seconds..."
+              sleep 3
+            fi
+          done
+
+          echo "Healthchecks failed after 3 attempts"
+          exit 1
