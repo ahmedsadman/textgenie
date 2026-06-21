@@ -45,3 +45,26 @@ def db():
 @pytest.fixture()
 def client():
     return TestClient(app)
+
+
+def register(
+    client, name="Test User", email="test@example.com", password="password123"
+):
+    return client.post(
+        "/api/auth/register",
+        json={"name": name, "email": email, "password": password},
+    )
+
+
+def login(client, email="test@example.com", password="password123"):
+    return client.post(
+        "/api/auth/login",
+        json={"email": email, "password": password},
+    )
+
+
+def register_and_login(
+    client, name="Test User", email="test@example.com", password="password123"
+):
+    register(client, name=name, email=email, password=password)
+    return login(client, email=email, password=password)
