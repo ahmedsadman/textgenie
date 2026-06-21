@@ -36,3 +36,24 @@ export async function apiGet<T>(path: string): Promise<T> {
   });
   return handleResponse<T>(response);
 }
+
+export async function apiPut<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  return handleResponse<T>(response);
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return handleResponse<T>(response);
+}
