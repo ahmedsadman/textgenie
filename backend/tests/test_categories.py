@@ -103,9 +103,7 @@ def test_update_category_normalizes_name(client):
     register_and_login(client)
     cat_id = create_category(client, name="groceries").json()["id"]
 
-    response = client.put(
-        f"/api/categories/{cat_id}", json={"name": "  FOOD  "}
-    )
+    response = client.put(f"/api/categories/{cat_id}", json={"name": "  FOOD  "})
     assert response.status_code == 200
     assert response.json()["name"] == "food"
 
@@ -121,9 +119,7 @@ def test_update_category_duplicate_name(client):
     create_category(client, name="groceries")
     cat_id = create_category(client, name="bills").json()["id"]
 
-    response = client.put(
-        f"/api/categories/{cat_id}", json={"name": "groceries"}
-    )
+    response = client.put(f"/api/categories/{cat_id}", json={"name": "groceries"})
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
 
@@ -132,9 +128,7 @@ def test_update_category_same_name(client):
     register_and_login(client)
     cat_id = create_category(client, name="groceries").json()["id"]
 
-    response = client.put(
-        f"/api/categories/{cat_id}", json={"name": "groceries"}
-    )
+    response = client.put(f"/api/categories/{cat_id}", json={"name": "groceries"})
     assert response.status_code == 200
     assert response.json()["name"] == "groceries"
 
