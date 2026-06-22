@@ -3,6 +3,7 @@
 ## Coding Style
 
 - Always use proper Typescript types. Do NOT use `any` unless the proper fix gets too complicated
+- Always respect prettier and eslint config when generating new code or updating existing code
 
 ## Testing
 
