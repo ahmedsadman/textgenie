@@ -42,9 +42,7 @@ def _categorize(
         return None
 
 
-def process_webhook(
-    db: DBSession, token: str, payload: WebhookPayload
-) -> Message:
+def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Message:
     user = db.query(User).filter(User.webhook_token == token).first()
     if not user:
         logger.error("Webhook received with invalid token: %s", token)
@@ -85,9 +83,7 @@ def categorize_message(message_id: int) -> None:
         if category:
             message.category_id = category.id
             db.commit()
-            logger.info(
-                "Message id=%d categorized as '%s'", message_id, category.name
-            )
+            logger.info("Message id=%d categorized as '%s'", message_id, category.name)
         else:
             logger.info("Message id=%d remains uncategorized", message_id)
     except Exception:

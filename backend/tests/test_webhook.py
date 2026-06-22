@@ -106,9 +106,7 @@ def test_webhook_uncategorized_when_llm_fails(client, run_categorization):
     def _raise(*a):
         raise RuntimeError("LLM down")
 
-    mock_provider = type(
-        "MockProvider", (), {"categorize_message": _raise}
-    )()
+    mock_provider = type("MockProvider", (), {"categorize_message": _raise})()
     run_categorization(message_id, mock_provider)
 
     messages = client.get("/api/messages").json()["messages"]
@@ -118,9 +116,7 @@ def test_webhook_uncategorized_when_llm_fails(client, run_categorization):
 def test_webhook_creates_message_with_unicode(client):
     register_and_login(client)
     token = get_webhook_token(client)
-    response = create_message(
-        client, token, sender="বাবা", content="শুভ জন্মদিন 🎂"
-    )
+    response = create_message(client, token, sender="বাবা", content="শুভ জন্মদিন 🎂")
     assert response.status_code == 202
 
     messages = client.get("/api/messages").json()["messages"]
