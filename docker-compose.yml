@@ -1,6 +1,7 @@
 services:
   db:
     image: mysql:8.4.5
+    command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: textgenie
@@ -26,7 +27,9 @@ services:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=mysql+pymysql://textgenie:textgenie@db:3306/textgenie
+      - DATABASE_URL=mysql+pymysql://textgenie:textgenie@db:3306/textgenie?charset=utf8mb4
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-http://localhost:8080}
     networks:
       - app-network
 
