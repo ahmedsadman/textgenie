@@ -21,9 +21,7 @@ class GeminiProvider(LLMProvider):
         if not categories:
             return None
 
-        prompt = self.build_categorization_prompt(
-            message_content, sender, categories
-        )
+        prompt = self.build_categorization_prompt(message_content, sender, categories)
         logger.info("Sending message to LLM for categorization")
 
         response = self.client.models.generate_content(

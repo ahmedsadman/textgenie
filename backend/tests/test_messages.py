@@ -91,9 +91,7 @@ def test_list_messages_filter_multiple_categories(client, run_categorization):
     cats = client.get("/api/categories").json()
     finance_id = next(c["id"] for c in cats if c["name"] == "finance")
 
-    response = client.get(
-        f"/api/messages?category_ids={finance_id}&category_ids=0"
-    )
+    response = client.get(f"/api/messages?category_ids={finance_id}&category_ids=0")
     data = response.json()
     assert data["total"] == 2
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { Popover } from "@base-ui/react/popover";
@@ -64,51 +64,45 @@ export default function DashboardPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const loadMessages = useCallback(
-    async (p: number, catIds: number[], q: string) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
       const params = new URLSearchParams({
-        page: String(p),
+        page: String(page),
         page_size: String(PAGE_SIZE),
       });
-      for (const id of catIds) {
+      for (const id of selectedCategories) {
         params.append("category_ids", String(id));
       }
-      if (q.trim()) params.set("search", q.trim());
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
 
       try {
-        const data = await apiGet<PaginatedMessages>(
-          `/messages?${params.toString()}`,
-        );
-        setMessages(data);
-      } catch {
-        toast.error("Failed to load messages");
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    async function init() {
-      try {
-        const [webhookData, categoriesData] = await Promise.all([
-          apiGet<WebhookSettings>("/settings/webhook"),
-          apiGet<Category[]>("/categories"),
+        const [webhookData, categoriesData, messagesData] = await Promise.all([
+          webhook
+            ? Promise.resolve(webhook)
+            : apiGet<WebhookSettings>("/settings/webhook"),
+          categories.length > 0
+            ? Promise.resolve(categories)
+            : apiGet<Category[]>("/categories"),
+          apiGet<PaginatedMessages>(`/messages?${params.toString()}`),
         ]);
+        if (cancelled) return;
         setWebhook(webhookData);
         setCategories(categoriesData);
-        await loadMessages(1, [], "");
+        setMessages(messagesData);
       } catch {
-        toast.error("Failed to load dashboard");
+        if (!cancelled) toast.error("Failed to load messages");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    init();
-  }, [loadMessages]);
 
-  useEffect(() => {
-    loadMessages(page, selectedCategories, debouncedSearch);
-  }, [page, selectedCategories, debouncedSearch, loadMessages]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [page, selectedCategories, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -164,7 +158,11 @@ export default function DashboardPage() {
         if (remaining.length === 0 && page > 1) {
           setPage(page - 1);
         } else {
-          await loadMessages(page, selectedCategories, debouncedSearch);
+          setMessages({
+            ...messages,
+            messages: remaining,
+            total: messages.total - 1,
+          });
         }
       }
     } catch (error) {

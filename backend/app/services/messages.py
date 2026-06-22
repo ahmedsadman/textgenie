@@ -56,10 +56,7 @@ def list_messages(
     total = query.count()
     offset = (page - 1) * page_size
     messages = (
-        query.order_by(Message.received_at.desc())
-        .offset(offset)
-        .limit(page_size)
-        .all()
+        query.order_by(Message.received_at.desc()).offset(offset).limit(page_size).all()
     )
 
     return messages, total
