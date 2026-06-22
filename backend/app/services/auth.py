@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -45,6 +46,7 @@ def create_user(db: DBSession, data: RegisterRequest) -> User:
         name=data.name,
         email=data.email,
         password_hash=hash_password(data.password),
+        webhook_token=str(uuid.uuid4()),
     )
     db.add(user)
     db.commit()
