@@ -41,3 +41,32 @@ class CategoryResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WebhookPayload(BaseModel):
+    sender: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    timestamp: int | None = None
+
+
+class WebhookSettingsResponse(BaseModel):
+    webhook_url: str
+    webhook_token: str
+
+
+class SmsMessageResponse(BaseModel):
+    id: int
+    sender: str
+    content: str
+    received_at: datetime
+    category: CategoryResponse | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PaginatedMessagesResponse(BaseModel):
+    messages: list[SmsMessageResponse]
+    total: int
+    page: int
+    page_size: int
