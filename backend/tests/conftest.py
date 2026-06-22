@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -6,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.services.webhook import categorize_message
 
 engine = create_engine(
     "sqlite://",
@@ -68,3 +71,28 @@ def register_and_login(
 ):
     register(client, name=name, email=email, password=password)
     return login(client, email=email, password=password)
+
+
+def get_webhook_token(client):
+    response = client.get("/api/settings/webhook")
+    return response.json()["webhook_token"]
+
+
+def create_message(client, token, sender="1234", content="hello", timestamp=None):
+    payload = {"sender": sender, "content": content}
+    if timestamp is not None:
+        payload["timestamp"] = timestamp
+    return client.post(f"/api/webhook/{token}", json=payload)
+
+
+@pytest.fixture()
+def run_categorization():
+    def _run(message_id, provider):
+        with (
+            patch("app.services.webhook.get_llm_provider", return_value=provider),
+            patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
+            patch("app.services.webhook.SessionLocal", TestSessionLocal),
+        ):
+            categorize_message(message_id)
+
+    return _run

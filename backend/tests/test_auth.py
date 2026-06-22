@@ -124,6 +124,7 @@ def test_delete_expired_sessions(db):
         name="Test",
         email="test@example.com",
         password_hash=hash_password("password123"),
+        webhook_token="test-token-123",
     )
     db.add(user)
     db.commit()
