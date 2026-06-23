@@ -146,14 +146,19 @@ describe("DashboardPage", () => {
     });
   });
 
-  it("regenerates webhook token after confirmation", async () => {
+  it("regenerates webhook token, shows loader, and closes dialog", async () => {
     const newWebhook = {
       webhook_url: "http://localhost:8001/api/webhook/new-token-456",
       webhook_token: "new-token-456",
     };
+    let resolveRegenerate: ((value: typeof newWebhook) => void) | undefined;
     server.use(
-      http.post("/api/settings/webhook/regenerate", () =>
-        HttpResponse.json(newWebhook),
+      http.post(
+        "/api/settings/webhook/regenerate",
+        () =>
+          new Promise((resolve) => {
+            resolveRegenerate = (value) => resolve(HttpResponse.json(value));
+          }),
       ),
     );
 
@@ -170,7 +175,22 @@ describe("DashboardPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Regenerate" }));
 
+    const regeneratingButton = await screen.findByRole("button", {
+      name: /regenerating/i,
+    });
+    expect(regeneratingButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+    resolveRegenerate!(newWebhook);
+
     await screen.findByDisplayValue(newWebhook.webhook_url);
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Regenerate token", {
+          selector: "[data-slot='alert-dialog-title']",
+        }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("shows pagination when needed", async () => {
