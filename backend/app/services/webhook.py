@@ -8,6 +8,7 @@ from app.config import GEMINI_API_KEY
 from app.database import SessionLocal
 from app.models import Category, Message, User
 from app.schemas import WebhookPayload
+from app.services.llm.base import MessageParseResult
 from app.services.llm.provider import get_llm_provider
 
 logger = logging.getLogger(__name__)
@@ -23,23 +24,23 @@ def _parse_timestamp(timestamp: int | None) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _categorize(
-    message_content: str, sender: str, categories: list[Category]
-) -> Category | None:
+def _parse(
+    message_content: str,
+    sender: str,
+    categories: list[Category],
+    banks: list[str] | None = None,
+) -> MessageParseResult:
     if not GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not configured — skipping categorization")
-        return None
+        logger.warning("GEMINI_API_KEY not configured — skipping message parsing")
+        return MessageParseResult()
 
     category_names = [c.name for c in categories]
     try:
         provider = get_llm_provider()
-        result = provider.categorize_message(message_content, sender, category_names)
-        if result:
-            return next((c for c in categories if c.name == result), None)
-        return None
+        return provider.parse_message(message_content, sender, category_names, banks)
     except Exception:
-        logger.error("LLM categorization failed", exc_info=True)
-        return None
+        logger.error("LLM message parsing failed", exc_info=True)
+        return MessageParseResult()
 
 
 def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Message:
@@ -67,28 +68,34 @@ def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Messa
     return message
 
 
-def categorize_message(message_id: int) -> None:
+def parse_message(message_id: int) -> None:
     db = SessionLocal()
     try:
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
-            logger.error("Background categorization: message %d not found", message_id)
+            logger.error("Background parsing: message %d not found", message_id)
             return
 
         categories = (
             db.query(Category).filter(Category.user_id == message.user_id).all()
         )
 
-        category = _categorize(message.content, message.sender, categories)
-        if category:
-            message.category_id = category.id
-            db.commit()
-            logger.info("Message id=%d categorized as '%s'", message_id, category.name)
-        else:
+        result = _parse(message.content, message.sender, categories)
+
+        if result.category:
+            category = next((c for c in categories if c.name == result.category), None)
+            if category:
+                message.category_id = category.id
+                logger.info(
+                    "Message id=%d categorized as '%s'", message_id, category.name
+                )
+
+        db.commit()
+        if not result.category:
             logger.info("Message id=%d remains uncategorized", message_id)
     except Exception:
         logger.error(
-            "Background categorization failed for message %d",
+            "Background parsing failed for message %d",
             message_id,
             exc_info=True,
         )

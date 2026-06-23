@@ -1,37 +1,95 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from decimal import Decimal
+
+
+@dataclass
+class MessageParseResult:
+    category: str | None = None
+    bank: str | None = None
+    balance: Decimal | None = None
+
+
+_INTRO = (
+    "You are a message parser. Given an SMS message, extract structured information from it.\n"
+    "The message may be in any language (English, Bengali, Arabic, Chinese, etc.). "
+    "Interpret based on content meaning regardless of language."
+)
+
+
+_CATEGORY_EXAMPLES = """\
+Examples (these use illustrative category names — always use the categories listed above, not the example ones):
+- Message from "BRACBANK": "Your account has been debited 50.00 BDT. Balance: 2000 BDT" -> category: "transaction"
+- Message from "+99002291": "Happy birthday!" -> category: "personal"
+- Message from "+80881092213": "আপনার একাউন্ট থেকে ৫০০ টাকা কেটে নেওয়া হয়েছে" -> category: "transaction"
+- Message from "Daraz": "Win a free iPhone now!" -> category: "promotion"
+- Message from "STARCINEPLEX": "Your ticket is confirmed for Dune on 12th June" -> category: "ticket"\
+"""
+
+
+_BANK_EXAMPLES = """\
+Examples (these use illustrative bank names — always use the bank names listed above, not the example ones):
+- Message from "BRACBANK": "Acct debit 50.00 BDT. Balance: 2000 BDT" with Banks ["BRAC Bank PLC"] -> bank: "BRAC Bank PLC", balance: 2000
+- Message from "EBL": "POS Transaction Amount: 3500 BDT Balance: 100000 BDT" with Banks ["EBL", "City Bank"] -> bank: "EBL", balance: 100000
+- Message from "+88019921": "CITYTOUCH TXN Amount: 3500 BDT Balance: 100000.00 BDT" with Banks ["EBL", "City Bank"] -> bank: "City Bank", balance: 100000.00
+- Message from "Daraz": "Sale starts now!" with Banks ["BRAC Bank PLC"] -> bank: null, balance: null\
+"""
+
+
+_RESPONSE_SHAPE = (
+    "Respond with this exact JSON object. Set any field to null when it does not apply "
+    "or you cannot determine it from the message:\n"
+    '{"category": "<category_name>"|null, "bank": "<bank_name>"|null, "balance": <number>|null}\n'
+    "Rules:\n"
+    "- category: use a name from the Categories list above, or null. Never invent new names.\n"
+    "- bank: use a name from the Banks list above, exactly as written, or null. Never invent new names.\n"
+    "- balance: a plain number (no currency symbol, no commas, no thousands separators), or null. "
+    "Only set when you have also identified a bank.\n"
+    "- If the Categories or Banks list was not provided above, the corresponding field MUST be null."
+)
 
 
 class LLMProvider(ABC):
-    def build_categorization_prompt(
-        self, content: str, sender: str, categories: list[str]
+    def build_message_parse_prompt(
+        self,
+        content: str,
+        sender: str,
+        categories: list[str],
+        banks: list[str] | None = None,
     ) -> str:
-        categories_str = ", ".join(f'"{c}"' for c in categories)
-        return f"""\
-You are a message categorizer. Given an SMS message and a list of categories, determine which category best fits the message.
-The message may be in any language (English, Bengali, Arabic, Chinese, etc.). Categorize based on content meaning regardless of language.
+        banks = banks or []
+        sections: list[str] = [_INTRO]
 
-Categories: [{categories_str}]
+        if categories:
+            categories_str = ", ".join(f'"{c}"' for c in categories)
+            sections.append(
+                f"Categorize the message into one of the categories below.\n"
+                f"Categories: [{categories_str}]"
+            )
+            sections.append(_CATEGORY_EXAMPLES)
 
-Examples (these use illustrative category names — always use the categories listed above, not the example ones):
-- Message from "BRACBANK": "BRACBNK\nYour account has been debited 50.00 BDT. Balance: 2000 BDT" -> {{"category": "transaction"}}
-- Message from "EBL": "ECOMM/POS Transaction\nAmount: 3500 BDT\nMerchant: Aarong\nBalance: 100000 BDT" -> {{"category": "transaction"}}
-- Message from "+99002291": "Happy birthday!" -> {{"category": "personal"}}
-- Message from "+80881092213": "আপনার একাউন্ট থেকে ৫০০ টাকা কেটে নেওয়া হয়েছে" -> {{"category": "transaction"}}
-- Message from "+80881092213": "প্রিন্স বাজার এর সকল আউটলেট এ পাচ্ছেন ৫০% পর্যন্ত ছাড়। ২৬ জুন পর্যন্ত অফার প্রযোজ্য" -> {{"category": "promotion"}}
-- Message from "Daraz": "Win a free iPhone now!" -> {{"category": "promotion"}}
-- Message from "STARCINEPLEX": "Your ticket is confirmed for Dune on 12th June\nSeat D1, D2" -> {{"category": "ticket"}}
+        if banks:
+            banks_str = ", ".join(f'"{b}"' for b in banks)
+            sections.append(
+                f"The user owns the following banks. If the message appears to be from one of "
+                f"these banks (based on sender or content), identify the bank and extract the "
+                f"latest balance mentioned in the message.\n"
+                f"Banks: [{banks_str}]"
+            )
+            sections.append(_BANK_EXAMPLES)
 
-Message from "{sender}":
-"{content}"
+        sections.append(f'Message from "{sender}":\n"{content}"')
+        sections.append(_RESPONSE_SHAPE)
 
-Respond with a JSON object: {{"category": "<category_name>"}}
-If none of the categories fit, respond with: {{"category": "uncategorized"}}
-
-Only use category names from the provided list or "uncategorized"."""
+        return "\n\n".join(sections)
 
     @abstractmethod
-    def categorize_message(
-        self, message_content: str, sender: str, categories: list[str]
-    ) -> str | None:
-        """Return matching category name or None for uncategorized."""
+    def parse_message(
+        self,
+        message_content: str,
+        sender: str,
+        categories: list[str],
+        banks: list[str] | None = None,
+    ) -> MessageParseResult:
+        """Extract category, bank, and balance from the message."""
         ...

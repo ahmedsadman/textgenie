@@ -1,3 +1,4 @@
+from app.services.llm.base import MessageParseResult
 from tests.conftest import (
     create_message,
     get_webhook_token,
@@ -38,7 +39,7 @@ def test_list_messages_pagination(client):
     assert data2["page"] == 2
 
 
-def test_list_messages_filter_by_category(client, run_categorization):
+def test_list_messages_filter_by_category(client, run_message_parse):
     register_and_login(client)
     client.post("/api/categories", json={"name": "finance"})
     token = get_webhook_token(client)
@@ -50,9 +51,11 @@ def test_list_messages_filter_by_category(client, run_categorization):
     bank_msg_id = next(m["id"] for m in messages if m["sender"] == "Bank")
 
     mock_provider = type(
-        "MockProvider", (), {"categorize_message": lambda self, *a: "finance"}
+        "MockProvider",
+        (),
+        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
     )()
-    run_categorization(bank_msg_id, mock_provider)
+    run_message_parse(bank_msg_id, mock_provider)
 
     cats = client.get("/api/categories").json()
     finance_id = next(c["id"] for c in cats if c["name"] == "finance")
@@ -72,7 +75,7 @@ def test_list_messages_filter_uncategorized(client):
         assert msg["category"] is None
 
 
-def test_list_messages_filter_multiple_categories(client, run_categorization):
+def test_list_messages_filter_multiple_categories(client, run_message_parse):
     register_and_login(client)
     client.post("/api/categories", json={"name": "finance"})
     token = get_webhook_token(client)
@@ -84,9 +87,11 @@ def test_list_messages_filter_multiple_categories(client, run_categorization):
     bank_msg_id = next(m["id"] for m in messages if m["sender"] == "Bank")
 
     mock_provider = type(
-        "MockProvider", (), {"categorize_message": lambda self, *a: "finance"}
+        "MockProvider",
+        (),
+        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
     )()
-    run_categorization(bank_msg_id, mock_provider)
+    run_message_parse(bank_msg_id, mock_provider)
 
     cats = client.get("/api/categories").json()
     finance_id = next(c["id"] for c in cats if c["name"] == "finance")
