@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class GeminiProvider(LLMProvider):
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
-        self.model = "gemini-2.5-flash"
+        self.model = "gemini-2.5-flash-lite"
 
     def categorize_message(
         self, message_content: str, sender: str, categories: list[str]
