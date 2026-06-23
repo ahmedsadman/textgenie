@@ -9,6 +9,7 @@ import {
   Check,
   Copy,
   Filter,
+  Loader2,
   RefreshCw,
   Search,
   Trash2,
@@ -53,6 +54,8 @@ export default function DashboardPage() {
   const [webhook, setWebhook] = useState<WebhookSettings | null>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [messages, setMessages] = useState<PaginatedMessages | null>(null);
@@ -130,6 +133,7 @@ export default function DashboardPage() {
   }
 
   async function handleRegenerate() {
+    setRegenerating(true);
     try {
       const data = await api.regenerateWebhookToken();
       setWebhook(data);
@@ -140,6 +144,9 @@ export default function DashboardPage() {
       } else {
         toast.error("Failed to regenerate token");
       }
+    } finally {
+      setRegenerating(false);
+      setRegenerateOpen(false);
     }
   }
 
@@ -214,7 +221,12 @@ export default function DashboardPage() {
                   <Copy className="h-4 w-4" />
                 )}
               </Button>
-              <AlertDialog>
+              <AlertDialog
+                open={regenerateOpen}
+                onOpenChange={(open) => {
+                  if (!regenerating) setRegenerateOpen(open);
+                }}
+              >
                 <AlertDialogTrigger
                   render={
                     <Button
@@ -235,12 +247,22 @@ export default function DashboardPage() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={regenerating}>
+                      Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       variant="destructive"
                       onClick={handleRegenerate}
+                      disabled={regenerating}
                     >
-                      Regenerate
+                      {regenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        "Regenerate"
+                      )}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
