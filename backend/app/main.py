@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import CORS_ORIGINS
 from app.database import get_db
 from app.routers.auth import router as auth_router
+from app.routers.banks import router as banks_router
 from app.routers.categories import router as categories_router
 from app.routers.messages import router as messages_router
 from app.routers.settings import router as settings_router
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(banks_router)
 app.include_router(categories_router)
 app.include_router(messages_router)
 app.include_router(settings_router)

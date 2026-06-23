@@ -1,9 +1,11 @@
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -35,6 +37,7 @@ class User(Base):
     sessions: Mapped[list["Session"]] = relationship(back_populates="user")
     categories: Mapped[list["Category"]] = relationship(back_populates="user")
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
+    banks: Mapped[list["Bank"]] = relationship(back_populates="user")
 
 
 class Session(Base):
@@ -102,3 +105,25 @@ class Message(Base):
 
     user: Mapped["User"] = relationship(back_populates="messages")
     category: Mapped["Category | None"] = relationship()
+
+
+class Bank(Base):
+    __tablename__ = "banks"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_bank_user_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    last_balance: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    last_balance_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="banks")

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -70,3 +71,27 @@ class PaginatedMessagesResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class BankCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class BankUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_balance: Decimal | None = Field(default=None, ge=0)
+
+
+class BankResponse(BaseModel):
+    id: int
+    name: str
+    last_balance: Decimal | None
+    last_balance_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BanksListResponse(BaseModel):
+    banks: list[BankResponse]
+    total_balance: Decimal
