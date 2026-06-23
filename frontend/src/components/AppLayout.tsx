@@ -56,7 +56,7 @@ export default function AppLayout() {
     <div className="flex min-h-screen">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 cursor-pointer bg-black/50 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
