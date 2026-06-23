@@ -6,7 +6,6 @@ from app.models import User
 from app.schemas import (
     BankCreateRequest,
     BankResponse,
-    BanksListResponse,
     BankUpdateRequest,
     MessageResponse,
 )
@@ -15,20 +14,18 @@ from app.services.banks import (
     create_bank,
     delete_bank,
     list_banks,
-    total_balance,
     update_bank,
 )
 
 router = APIRouter(prefix="/api/banks", tags=["banks"])
 
 
-@router.get("", response_model=BanksListResponse)
+@router.get("", response_model=list[BankResponse])
 def get_banks(
     user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    banks = list_banks(db, user)
-    return BanksListResponse(banks=banks, total_balance=total_balance(banks))
+    return list_banks(db, user)
 
 
 @router.post("", response_model=BankResponse, status_code=201)

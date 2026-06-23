@@ -1,11 +1,17 @@
 import axios from "axios";
 
 import type {
+  Bank,
   Category,
   PaginatedMessages,
   User,
   WebhookSettings,
 } from "@/lib/types";
+
+export interface BankUpdate {
+  name?: string;
+  last_balance?: string;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -79,4 +85,15 @@ export const api = {
     client
       .post<WebhookSettings>("/settings/webhook/regenerate", {})
       .then((r) => r.data),
+
+  getBanks: () => client.get<Bank[]>("/banks").then((r) => r.data),
+
+  createBank: (name: string) =>
+    client.post<Bank>("/banks", { name }).then((r) => r.data),
+
+  updateBank: (id: number, data: BankUpdate) =>
+    client.put<Bank>(`/banks/${id}`, data).then((r) => r.data),
+
+  deleteBank: (id: number) =>
+    client.delete<void>(`/banks/${id}`).then((r) => r.data),
 };
