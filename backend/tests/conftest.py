@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.services.webhook import categorize_message
+from app.services.webhook import parse_message
 
 engine = create_engine(
     "sqlite://",
@@ -86,13 +86,13 @@ def create_message(client, token, sender="1234", content="hello", timestamp=None
 
 
 @pytest.fixture()
-def run_categorization():
+def run_message_parse():
     def _run(message_id, provider):
         with (
             patch("app.services.webhook.get_llm_provider", return_value=provider),
             patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
             patch("app.services.webhook.SessionLocal", TestSessionLocal),
         ):
-            categorize_message(message_id)
+            parse_message(message_id)
 
     return _run

@@ -1,3 +1,4 @@
+from app.services.llm.base import MessageParseResult
 from tests.conftest import create_message, get_webhook_token, register_and_login
 
 
@@ -49,7 +50,7 @@ def test_webhook_falls_back_on_invalid_timestamp(client):
     assert messages[0]["received_at"] is not None
 
 
-def test_webhook_categorizes_with_llm(client, run_categorization):
+def test_webhook_categorizes_with_llm(client, run_message_parse):
     register_and_login(client)
     client.post("/api/categories", json={"name": "finance"})
     token = get_webhook_token(client)
@@ -59,15 +60,17 @@ def test_webhook_categorizes_with_llm(client, run_categorization):
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
     mock_provider = type(
-        "MockProvider", (), {"categorize_message": lambda self, *a: "finance"}
+        "MockProvider",
+        (),
+        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
     )()
-    run_categorization(message_id, mock_provider)
+    run_message_parse(message_id, mock_provider)
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"]["name"] == "finance"
 
 
-def test_webhook_uncategorized_when_llm_returns_none(client, run_categorization):
+def test_webhook_uncategorized_when_llm_returns_none(client, run_message_parse):
     register_and_login(client)
     client.post("/api/categories", json={"name": "finance"})
     token = get_webhook_token(client)
@@ -77,9 +80,11 @@ def test_webhook_uncategorized_when_llm_returns_none(client, run_categorization)
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
     mock_provider = type(
-        "MockProvider", (), {"categorize_message": lambda self, *a: None}
+        "MockProvider",
+        (),
+        {"parse_message": lambda self, *a, **k: MessageParseResult()},
     )()
-    run_categorization(message_id, mock_provider)
+    run_message_parse(message_id, mock_provider)
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"] is None
@@ -94,7 +99,7 @@ def test_webhook_uncategorized_when_no_categories(client):
     assert messages[0]["category"] is None
 
 
-def test_webhook_uncategorized_when_llm_fails(client, run_categorization):
+def test_webhook_uncategorized_when_llm_fails(client, run_message_parse):
     register_and_login(client)
     client.post("/api/categories", json={"name": "finance"})
     token = get_webhook_token(client)
@@ -103,11 +108,11 @@ def test_webhook_uncategorized_when_llm_fails(client, run_categorization):
 
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
-    def _raise(*a):
+    def _raise(*a, **k):
         raise RuntimeError("LLM down")
 
-    mock_provider = type("MockProvider", (), {"categorize_message": _raise})()
-    run_categorization(message_id, mock_provider)
+    mock_provider = type("MockProvider", (), {"parse_message": _raise})()
+    run_message_parse(message_id, mock_provider)
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"] is None
