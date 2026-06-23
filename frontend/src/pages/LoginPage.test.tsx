@@ -1,8 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 
+import { server } from "@/mocks/server";
 import LoginPage from "@/pages/LoginPage";
-import { mockFetch, renderWithRouter } from "@/test-utils";
+import { renderWithRouter } from "@/test-utils";
 
 describe("LoginPage", () => {
   it("renders email and password fields", () => {
@@ -21,7 +23,14 @@ describe("LoginPage", () => {
   });
 
   it("shows error toast on failed login", async () => {
-    mockFetch(401, { detail: "Invalid email or password" });
+    server.use(
+      http.post("/api/auth/login", () =>
+        HttpResponse.json(
+          { detail: "Invalid email or password" },
+          { status: 401 },
+        ),
+      ),
+    );
     const user = userEvent.setup();
 
     renderWithRouter(<LoginPage />);
@@ -35,12 +44,16 @@ describe("LoginPage", () => {
   });
 
   it("navigates to home on successful login", async () => {
-    mockFetch(200, {
-      id: 1,
-      name: "Test User",
-      email: "test@example.com",
-      created_at: "2026-01-01T00:00:00Z",
-    });
+    server.use(
+      http.post("/api/auth/login", () =>
+        HttpResponse.json({
+          id: 1,
+          name: "Test User",
+          email: "test@example.com",
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ),
+    );
     const user = userEvent.setup();
 
     renderWithRouter(<LoginPage />);

@@ -1,3 +1,12 @@
+import axios from "axios";
+
+import type {
+  Category,
+  PaginatedMessages,
+  User,
+  WebhookSettings,
+} from "@/lib/types";
+
 export class ApiError extends Error {
   status: number;
 
@@ -7,53 +16,67 @@ export class ApiError extends Error {
   }
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Request failed" }));
-    throw new ApiError(response.status, error.detail || "Request failed");
-  }
-  return response.json();
+const client = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
+  paramsSerializer: { indexes: null },
+});
+
+client.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status ?? 0;
+      const data = error.response?.data as { detail?: string } | undefined;
+      throw new ApiError(status, data?.detail ?? "Request failed");
+    }
+    throw error;
+  },
+);
+
+export interface MessagesQuery {
+  page: number;
+  page_size: number;
+  category_ids?: number[];
+  search?: string;
 }
 
-export async function apiPost<T>(
-  path: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  return handleResponse<T>(response);
-}
+export const api = {
+  login: (email: string, password: string) =>
+    client.post<User>("/auth/login", { email, password }).then((r) => r.data),
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    credentials: "include",
-  });
-  return handleResponse<T>(response);
-}
+  register: (name: string, email: string, password: string) =>
+    client
+      .post<User>("/auth/register", { name, email, password })
+      .then((r) => r.data),
 
-export async function apiPut<T>(
-  path: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  return handleResponse<T>(response);
-}
+  getMe: () => client.get<User>("/auth/me").then((r) => r.data),
 
-export async function apiDelete<T>(path: string): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  return handleResponse<T>(response);
-}
+  logout: () => client.post<void>("/auth/logout", {}).then((r) => r.data),
+
+  getCategories: () =>
+    client.get<Category[]>("/categories").then((r) => r.data),
+
+  createCategory: (name: string) =>
+    client.post<Category>("/categories", { name }).then((r) => r.data),
+
+  updateCategory: (id: number, name: string) =>
+    client.put<Category>(`/categories/${id}`, { name }).then((r) => r.data),
+
+  deleteCategory: (id: number) =>
+    client.delete<void>(`/categories/${id}`).then((r) => r.data),
+
+  getMessages: (params: MessagesQuery) =>
+    client.get<PaginatedMessages>("/messages", { params }).then((r) => r.data),
+
+  deleteMessage: (id: number) =>
+    client.delete<void>(`/messages/${id}`).then((r) => r.data),
+
+  getWebhookSettings: () =>
+    client.get<WebhookSettings>("/settings/webhook").then((r) => r.data),
+
+  regenerateWebhookToken: () =>
+    client
+      .post<WebhookSettings>("/settings/webhook/regenerate", {})
+      .then((r) => r.data),
+};

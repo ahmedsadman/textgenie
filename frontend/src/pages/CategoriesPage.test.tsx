@@ -1,13 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 
+import { server } from "@/mocks/server";
 import CategoriesPage from "@/pages/CategoriesPage";
-import {
-  mockFetch,
-  mockFetchSequence,
-  mockUser,
-  renderWithOutletContext,
-} from "@/test-utils";
+import { mockUser, renderWithOutletContext } from "@/test-utils";
 
 const mockCategories = [
   { id: 1, name: "bills", created_at: "2026-01-01T00:00:00Z" },
@@ -19,9 +16,13 @@ function renderPage() {
 }
 
 describe("CategoriesPage", () => {
-  it("renders category list", async () => {
-    mockFetch(200, mockCategories);
+  beforeEach(() => {
+    server.use(
+      http.get("/api/categories", () => HttpResponse.json(mockCategories)),
+    );
+  });
 
+  it("renders category list", async () => {
     renderPage();
 
     await waitFor(() => {
@@ -31,7 +32,7 @@ describe("CategoriesPage", () => {
   });
 
   it("shows empty state when no categories", async () => {
-    mockFetch(200, []);
+    server.use(http.get("/api/categories", () => HttpResponse.json([])));
 
     renderPage();
 
@@ -41,12 +42,14 @@ describe("CategoriesPage", () => {
   });
 
   it("adds a new category", async () => {
-    mockFetchSequence(
-      { status: 200, body: [] },
-      {
-        status: 201,
-        body: { id: 1, name: "travel", created_at: "2026-01-01T00:00:00Z" },
-      },
+    server.use(
+      http.get("/api/categories", () => HttpResponse.json([])),
+      http.post("/api/categories", () =>
+        HttpResponse.json(
+          { id: 1, name: "travel", created_at: "2026-01-01T00:00:00Z" },
+          { status: 201 },
+        ),
+      ),
     );
 
     renderPage();
@@ -68,9 +71,13 @@ describe("CategoriesPage", () => {
   });
 
   it("shows error on duplicate category", async () => {
-    mockFetchSequence(
-      { status: 200, body: mockCategories },
-      { status: 409, body: { detail: "Category already exists" } },
+    server.use(
+      http.post("/api/categories", () =>
+        HttpResponse.json(
+          { detail: "Category already exists" },
+          { status: 409 },
+        ),
+      ),
     );
 
     renderPage();
@@ -89,12 +96,14 @@ describe("CategoriesPage", () => {
   });
 
   it("edits a category inline", async () => {
-    mockFetchSequence(
-      { status: 200, body: mockCategories },
-      {
-        status: 200,
-        body: { id: 1, name: "utilities", created_at: "2026-01-01T00:00:00Z" },
-      },
+    server.use(
+      http.put("/api/categories/1", () =>
+        HttpResponse.json({
+          id: 1,
+          name: "utilities",
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ),
     );
 
     renderPage();
@@ -118,8 +127,6 @@ describe("CategoriesPage", () => {
   });
 
   it("cancels editing", async () => {
-    mockFetch(200, mockCategories);
-
     renderPage();
     const user = userEvent.setup();
 
@@ -138,9 +145,10 @@ describe("CategoriesPage", () => {
   });
 
   it("deletes a category after confirmation", async () => {
-    mockFetchSequence(
-      { status: 200, body: mockCategories },
-      { status: 200, body: { message: "Category deleted" } },
+    server.use(
+      http.delete("/api/categories/1", () =>
+        HttpResponse.json({ message: "Category deleted" }),
+      ),
     );
 
     renderPage();

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, apiPost } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await apiPost("/auth/register", { name, email, password });
+      await api.register(name, email, password);
       toast.success("Registration successful! Please sign in.");
       navigate("/login");
     } catch (error) {

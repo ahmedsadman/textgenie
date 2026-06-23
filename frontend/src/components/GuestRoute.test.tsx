@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { BrowserRouter } from "react-router-dom";
 
 import GuestRoute from "@/components/GuestRoute";
-import { mockFetch, mockUser } from "@/test-utils";
+import { server } from "@/mocks/server";
+import { mockUser } from "@/test-utils";
 
 function renderGuestRoute() {
   return render(
@@ -16,7 +18,11 @@ function renderGuestRoute() {
 
 describe("GuestRoute", () => {
   it("renders children when unauthenticated", async () => {
-    mockFetch(401, { detail: "Not authenticated" });
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json({ detail: "Not authenticated" }, { status: 401 }),
+      ),
+    );
 
     renderGuestRoute();
 
@@ -26,7 +32,7 @@ describe("GuestRoute", () => {
   });
 
   it("redirects to home when authenticated", async () => {
-    mockFetch(200, mockUser);
+    server.use(http.get("/api/auth/me", () => HttpResponse.json(mockUser)));
 
     renderGuestRoute();
 
@@ -36,7 +42,7 @@ describe("GuestRoute", () => {
   });
 
   it("shows loading state while checking auth", () => {
-    vi.spyOn(globalThis, "fetch").mockReturnValueOnce(new Promise(() => {}));
+    server.use(http.get("/api/auth/me", () => new Promise<Response>(() => {})));
 
     renderGuestRoute();
 

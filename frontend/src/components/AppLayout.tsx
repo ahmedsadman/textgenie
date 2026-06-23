@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { LayoutDashboard, LogOut, Menu, Tag, X } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ApiError, apiGet, apiPost } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,8 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    apiGet<User>("/auth/me")
+    api
+      .getMe()
       .then(setUser)
       .catch(() => navigate("/login", { replace: true }))
       .finally(() => setLoading(false));
@@ -30,7 +31,7 @@ export default function AppLayout() {
 
   async function handleLogout() {
     try {
-      await apiPost("/auth/logout", {});
+      await api.logout();
       navigate("/login");
     } catch (error) {
       if (error instanceof ApiError) {

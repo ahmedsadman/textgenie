@@ -1,8 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 
+import { server } from "@/mocks/server";
 import RegisterPage from "@/pages/RegisterPage";
-import { mockFetch, renderWithRouter } from "@/test-utils";
+import { renderWithRouter } from "@/test-utils";
 
 describe("RegisterPage", () => {
   it("renders all form fields", () => {
@@ -41,7 +43,14 @@ describe("RegisterPage", () => {
   });
 
   it("shows error toast on failed registration", async () => {
-    mockFetch(409, { detail: "Email already registered" });
+    server.use(
+      http.post("/api/auth/register", () =>
+        HttpResponse.json(
+          { detail: "Email already registered" },
+          { status: 409 },
+        ),
+      ),
+    );
     const user = userEvent.setup();
 
     renderWithRouter(<RegisterPage />);
@@ -57,12 +66,19 @@ describe("RegisterPage", () => {
   });
 
   it("navigates to login on successful registration", async () => {
-    mockFetch(201, {
-      id: 1,
-      name: "Test User",
-      email: "test@example.com",
-      created_at: "2026-01-01T00:00:00Z",
-    });
+    server.use(
+      http.post("/api/auth/register", () =>
+        HttpResponse.json(
+          {
+            id: 1,
+            name: "Test User",
+            email: "test@example.com",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+          { status: 201 },
+        ),
+      ),
+    );
     const user = userEvent.setup();
 
     renderWithRouter(<RegisterPage />);

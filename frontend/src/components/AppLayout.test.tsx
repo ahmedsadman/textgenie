@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import AppLayout from "@/components/AppLayout";
-import { mockFetch, mockUser } from "@/test-utils";
+import { server } from "@/mocks/server";
+import { mockUser } from "@/test-utils";
 
 function renderLayout() {
   return render(
@@ -17,7 +19,11 @@ function renderLayout() {
 
 describe("AppLayout", () => {
   it("redirects to login when unauthenticated", async () => {
-    mockFetch(401, { detail: "Not authenticated" });
+    server.use(
+      http.get("/api/auth/me", () =>
+        HttpResponse.json({ detail: "Not authenticated" }, { status: 401 }),
+      ),
+    );
 
     renderLayout();
 
@@ -27,7 +33,7 @@ describe("AppLayout", () => {
   });
 
   it("renders sidebar with nav items when authenticated", async () => {
-    mockFetch(200, mockUser);
+    server.use(http.get("/api/auth/me", () => HttpResponse.json(mockUser)));
 
     renderLayout();
 
@@ -44,7 +50,12 @@ describe("AppLayout", () => {
   });
 
   it("logs out and redirects to login", async () => {
-    mockFetch(200, mockUser);
+    server.use(
+      http.get("/api/auth/me", () => HttpResponse.json(mockUser)),
+      http.post("/api/auth/logout", () =>
+        HttpResponse.json({ message: "Logged out successfully" }),
+      ),
+    );
 
     renderLayout();
 
@@ -52,7 +63,6 @@ describe("AppLayout", () => {
       expect(screen.getAllByText("TextGenie").length).toBeGreaterThan(0);
     });
 
-    mockFetch(200, { message: "Logged out successfully" });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /logout/i }));
 
@@ -62,7 +72,7 @@ describe("AppLayout", () => {
   });
 
   it("shows loading state while checking auth", () => {
-    vi.spyOn(globalThis, "fetch").mockReturnValueOnce(new Promise(() => {}));
+    server.use(http.get("/api/auth/me", () => new Promise<Response>(() => {})));
 
     renderLayout();
 

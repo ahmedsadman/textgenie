@@ -1,12 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 
+import { server } from "@/mocks/server";
 import DashboardPage from "@/pages/DashboardPage";
-import {
-  mockFetchSequence,
-  mockUser,
-  renderWithOutletContext,
-} from "@/test-utils";
+import { mockUser, renderWithOutletContext } from "@/test-utils";
 
 const mockWebhook = {
   webhook_url: "http://localhost:8001/api/webhook/test-token-123",
@@ -44,16 +42,19 @@ const mockMessages = {
 
 const emptyMessages = { messages: [], total: 0, page: 1, page_size: 20 };
 
-function renderDashboard(messagesOverride = mockMessages) {
-  mockFetchSequence(
-    { status: 200, body: mockWebhook },
-    { status: 200, body: mockCategories },
-    { status: 200, body: messagesOverride },
-  );
+function renderDashboard() {
   return renderWithOutletContext(<DashboardPage />, { user: mockUser });
 }
 
 describe("DashboardPage", () => {
+  beforeEach(() => {
+    server.use(
+      http.get("/api/settings/webhook", () => HttpResponse.json(mockWebhook)),
+      http.get("/api/categories", () => HttpResponse.json(mockCategories)),
+      http.get("/api/messages", () => HttpResponse.json(mockMessages)),
+    );
+  });
+
   it("shows dashboard title and welcome", async () => {
     renderDashboard();
     await screen.findByText("Dashboard");
@@ -112,11 +113,20 @@ describe("DashboardPage", () => {
   });
 
   it("shows empty state when no messages", async () => {
-    renderDashboard(emptyMessages);
+    server.use(
+      http.get("/api/messages", () => HttpResponse.json(emptyMessages)),
+    );
+    renderDashboard();
     await screen.findByText(/no messages yet/i);
   });
 
   it("deletes a message after confirmation", async () => {
+    server.use(
+      http.delete("/api/messages/1", () =>
+        HttpResponse.json({ message: "Message deleted" }),
+      ),
+    );
+
     const user = userEvent.setup();
     renderDashboard();
 
@@ -129,19 +139,6 @@ describe("DashboardPage", () => {
       selector: "[data-slot='alert-dialog-title']",
     });
 
-    mockFetchSequence(
-      { status: 200, body: { message: "Message deleted" } },
-      {
-        status: 200,
-        body: {
-          messages: [mockMessages.messages[1]],
-          total: 1,
-          page: 1,
-          page_size: 20,
-        },
-      },
-    );
-
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
@@ -150,6 +147,16 @@ describe("DashboardPage", () => {
   });
 
   it("regenerates webhook token after confirmation", async () => {
+    const newWebhook = {
+      webhook_url: "http://localhost:8001/api/webhook/new-token-456",
+      webhook_token: "new-token-456",
+    };
+    server.use(
+      http.post("/api/settings/webhook/regenerate", () =>
+        HttpResponse.json(newWebhook),
+      ),
+    );
+
     const user = userEvent.setup();
     renderDashboard();
 
@@ -161,25 +168,23 @@ describe("DashboardPage", () => {
       selector: "[data-slot='alert-dialog-title']",
     });
 
-    const newWebhook = {
-      webhook_url: "http://localhost:8001/api/webhook/new-token-456",
-      webhook_token: "new-token-456",
-    };
-    mockFetchSequence({ status: 200, body: newWebhook });
-
     await user.click(screen.getByRole("button", { name: "Regenerate" }));
 
     await screen.findByDisplayValue(newWebhook.webhook_url);
   });
 
   it("shows pagination when needed", async () => {
-    const paginatedMessages = {
-      messages: mockMessages.messages,
-      total: 40,
-      page: 1,
-      page_size: 20,
-    };
-    renderDashboard(paginatedMessages);
+    server.use(
+      http.get("/api/messages", () =>
+        HttpResponse.json({
+          messages: mockMessages.messages,
+          total: 40,
+          page: 1,
+          page_size: 20,
+        }),
+      ),
+    );
+    renderDashboard();
 
     await screen.findByText("Page 1 of 2");
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
