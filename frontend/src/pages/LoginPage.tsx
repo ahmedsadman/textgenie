@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, apiPost } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await apiPost("/auth/login", { email, password });
+      await api.login(email, password);
       navigate("/");
     } catch (error) {
       if (error instanceof ApiError) {

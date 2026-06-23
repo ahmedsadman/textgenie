@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import { apiGet } from "@/lib/api";
-import type { User } from "@/lib/types";
+import { api } from "@/lib/api";
 
 export default function GuestRoute({
   children,
@@ -13,7 +12,8 @@ export default function GuestRoute({
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    apiGet<User>("/auth/me")
+    api
+      .getMe()
       .then(() => setAuthenticated(true))
       .catch(() => setAuthenticated(false))
       .finally(() => setChecking(false));

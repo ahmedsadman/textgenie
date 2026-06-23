@@ -10,28 +10,6 @@ export const mockUser = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
-export function mockFetch(status: number, body: unknown) {
-  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  } as Response);
-}
-
-export function mockFetchSequence(
-  ...responses: Array<{ status: number; body: unknown }>
-) {
-  const spy = vi.spyOn(globalThis, "fetch");
-  for (const { status, body } of responses) {
-    spy.mockResolvedValueOnce({
-      ok: status >= 200 && status < 300,
-      status,
-      json: () => Promise.resolve(body),
-    } as Response);
-  }
-  return spy;
-}
-
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
     <BrowserRouter>

@@ -36,7 +36,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError, apiDelete, apiGet, apiPost } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import type {
   Category,
   PaginatedMessages,
@@ -68,24 +68,20 @@ export default function DashboardPage() {
     let cancelled = false;
 
     async function load() {
-      const params = new URLSearchParams({
-        page: String(page),
-        page_size: String(PAGE_SIZE),
-      });
-      for (const id of selectedCategories) {
-        params.append("category_ids", String(id));
-      }
-      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
-
+      const trimmedSearch = debouncedSearch.trim();
       try {
         const [webhookData, categoriesData, messagesData] = await Promise.all([
-          webhook
-            ? Promise.resolve(webhook)
-            : apiGet<WebhookSettings>("/settings/webhook"),
+          webhook ? Promise.resolve(webhook) : api.getWebhookSettings(),
           categories.length > 0
             ? Promise.resolve(categories)
-            : apiGet<Category[]>("/categories"),
-          apiGet<PaginatedMessages>(`/messages?${params.toString()}`),
+            : api.getCategories(),
+          api.getMessages({
+            page,
+            page_size: PAGE_SIZE,
+            category_ids:
+              selectedCategories.length > 0 ? selectedCategories : undefined,
+            search: trimmedSearch || undefined,
+          }),
         ]);
         if (cancelled) return;
         setWebhook(webhookData);
@@ -135,10 +131,7 @@ export default function DashboardPage() {
 
   async function handleRegenerate() {
     try {
-      const data = await apiPost<WebhookSettings>(
-        "/settings/webhook/regenerate",
-        {},
-      );
+      const data = await api.regenerateWebhookToken();
       setWebhook(data);
       toast.success("Webhook token regenerated");
     } catch (error) {
@@ -152,7 +145,7 @@ export default function DashboardPage() {
 
   async function handleDeleteMessage(messageId: number) {
     try {
-      await apiDelete(`/messages/${messageId}`);
+      await api.deleteMessage(messageId);
       if (messages) {
         const remaining = messages.messages.filter((m) => m.id !== messageId);
         if (remaining.length === 0 && page > 1) {

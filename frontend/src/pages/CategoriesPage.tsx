@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError, apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import type { Category } from "@/lib/types";
 
 export default function CategoriesPage() {
@@ -30,7 +30,8 @@ export default function CategoriesPage() {
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    apiGet<Category[]>("/categories")
+    api
+      .getCategories()
       .then(setCategories)
       .catch(() => toast.error("Failed to load categories"))
       .finally(() => setLoading(false));
@@ -48,9 +49,7 @@ export default function CategoriesPage() {
     setSubmitting(true);
 
     try {
-      const category = await apiPost<Category>("/categories", {
-        name: newName,
-      });
+      const category = await api.createCategory(newName);
       setCategories((prev) =>
         [...prev, category].sort((a, b) => a.name.localeCompare(b.name)),
       );
@@ -80,9 +79,7 @@ export default function CategoriesPage() {
     if (!editingName.trim()) return;
 
     try {
-      const updated = await apiPut<Category>(`/categories/${categoryId}`, {
-        name: editingName,
-      });
+      const updated = await api.updateCategory(categoryId, editingName);
       setCategories((prev) =>
         prev
           .map((c) => (c.id === categoryId ? updated : c))
@@ -101,7 +98,7 @@ export default function CategoriesPage() {
 
   async function handleDelete(categoryId: number) {
     try {
-      await apiDelete(`/categories/${categoryId}`);
+      await api.deleteCategory(categoryId);
       setCategories((prev) => prev.filter((c) => c.id !== categoryId));
     } catch (error) {
       if (error instanceof ApiError) {
