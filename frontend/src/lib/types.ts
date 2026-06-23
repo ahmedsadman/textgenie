@@ -31,3 +31,11 @@ export interface WebhookSettings {
   webhook_url: string;
   webhook_token: string;
 }
+
+export interface Bank {
+  id: number;
+  name: string;
+  last_balance: string | null;
+  last_balance_at: string | null;
+  created_at: string;
+}

@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -11,13 +10,6 @@ from app.schemas import BankCreateRequest, BankUpdateRequest
 
 def list_banks(db: DBSession, user: User) -> list[Bank]:
     return db.query(Bank).filter(Bank.user_id == user.id).order_by(Bank.name).all()
-
-
-def total_balance(banks: list[Bank]) -> Decimal:
-    return sum(
-        (b.last_balance for b in banks if b.last_balance is not None),
-        start=Decimal("0"),
-    )
 
 
 def get_bank_by_name(db: DBSession, user_id: int, name: str) -> Bank | None:

@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 
-from app.models import Bank
 from tests.conftest import register_and_login
 
 
@@ -76,29 +74,9 @@ def test_list_banks(client):
     response = client.get("/api/banks")
     assert response.status_code == 200
     data = response.json()
-    assert len(data["banks"]) == 3
-    names = [b["name"] for b in data["banks"]]
+    assert len(data) == 3
+    names = [b["name"] for b in data]
     assert names == ["BRAC Bank", "City Bank", "Eastern Bank"]
-    assert data["total_balance"] == "0"
-
-
-def test_list_banks_total_balance_sums_non_null(client, db):
-    register_and_login(client)
-    create_bank(client, name="A Bank")
-    create_bank(client, name="B Bank")
-    create_bank(client, name="C Bank")
-
-    # Set balances directly via DB to bypass the PUT auto-stamp logic
-    banks = db.query(Bank).order_by(Bank.name).all()
-    banks[0].last_balance = Decimal("100.50")
-    banks[1].last_balance = Decimal("250.25")
-    # banks[2] left at None
-    db.commit()
-
-    response = client.get("/api/banks")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["total_balance"] == "350.75"
 
 
 def test_list_banks_only_own(client):
@@ -111,17 +89,15 @@ def test_list_banks_only_own(client):
     response = client.get("/api/banks")
     assert response.status_code == 200
     data = response.json()
-    assert len(data["banks"]) == 1
-    assert data["banks"][0]["name"] == "User2 Bank"
+    assert len(data) == 1
+    assert data[0]["name"] == "User2 Bank"
 
 
 def test_list_banks_empty(client):
     register_and_login(client)
     response = client.get("/api/banks")
     assert response.status_code == 200
-    data = response.json()
-    assert data["banks"] == []
-    assert data["total_balance"] == "0"
+    assert response.json() == []
 
 
 def test_list_banks_unauthenticated(client):
@@ -246,7 +222,7 @@ def test_delete_bank(client):
     assert response.json()["message"] == "Bank deleted"
 
     response = client.get("/api/banks")
-    assert response.json()["banks"] == []
+    assert response.json() == []
 
 
 def test_delete_bank_not_found(client):

@@ -129,9 +129,7 @@ def test_balance_present_bank_null_is_orphan_stripped(make_provider):
     provider = make_provider(
         '{"category": "transaction", "bank": null, "balance": 500}'
     )
-    result = provider.parse_message(
-        "Balance: 500", "X", ["transaction"], ["BRAC Bank"]
-    )
+    result = provider.parse_message("Balance: 500", "X", ["transaction"], ["BRAC Bank"])
     assert result == MessageParseResult(category="transaction")
 
 

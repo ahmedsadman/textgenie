@@ -25,9 +25,7 @@ class GeminiProvider(LLMProvider):
     ) -> MessageParseResult:
         banks = banks or []
         if not categories and not banks:
-            logger.warning(
-                "No categories or banks provided — skipping message parsing"
-            )
+            logger.warning("No categories or banks provided — skipping message parsing")
             return MessageParseResult()
 
         prompt = self.build_message_parse_prompt(

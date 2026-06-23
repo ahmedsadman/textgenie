@@ -90,8 +90,3 @@ class BankResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
-
-
-class BanksListResponse(BaseModel):
-    banks: list[BankResponse]
-    total_balance: Decimal

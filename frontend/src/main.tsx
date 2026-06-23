@@ -7,6 +7,7 @@ import GuestRoute from "@/components/GuestRoute";
 import { Toaster } from "@/components/ui/sonner";
 import CategoriesPage from "@/pages/CategoriesPage";
 import DashboardPage from "@/pages/DashboardPage";
+import FinancePage from "@/pages/FinancePage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 
@@ -35,6 +36,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="categories" element={<CategoriesPage />} />
+          <Route path="finance" element={<FinancePage />} />
         </Route>
       </Routes>
       <Toaster />
