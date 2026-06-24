@@ -1,7 +1,9 @@
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+from google.genai import errors as genai_errors
 
 from app.services.llm.base import LLMProvider, MessageParseResult
 from app.services.llm.gemini import GeminiProvider
@@ -12,20 +14,44 @@ class _ConcreteProvider(LLMProvider):
         raise NotImplementedError
 
 
+def _make_response(text):
+    response = MagicMock()
+    response.text = text
+    return response
+
+
+def _api_error(code, message="boom"):
+    return genai_errors.APIError(code, {"error": {"message": message, "status": code}})
+
+
 @pytest.fixture
 def make_provider():
-    def _make(response_text=None):
+    def _make(response_text=None, side_effect=None):
         with (
             patch("app.services.llm.gemini.GEMINI_API_KEY", "fake-key"),
             patch("app.services.llm.gemini.genai"),
         ):
             provider = GeminiProvider()
-        mock_response = MagicMock()
-        mock_response.text = response_text
-        provider.client.models.generate_content = MagicMock(return_value=mock_response)
+        if side_effect is not None:
+            provider.client.models.generate_content = MagicMock(side_effect=side_effect)
+        else:
+            provider.client.models.generate_content = MagicMock(
+                return_value=_make_response(response_text)
+            )
         return provider
 
     return _make
+
+
+@pytest.fixture
+def no_sleep():
+    with patch("app.services.llm.gemini.time.sleep") as mock_sleep:
+        yield mock_sleep
+
+
+def _called_models(provider):
+    calls = provider.client.models.generate_content.call_args_list
+    return [call.kwargs.get("model") for call in calls]
 
 
 def build_prompt(content="msg", sender="Bank", categories=None, banks=None):
@@ -198,3 +224,85 @@ def test_prompt_includes_message_content_and_sender():
     )
     assert "BRACBANK" in prompt
     assert "You paid 50 BDT" in prompt
+
+
+# --- Retry / fallthrough ---
+
+
+PRIMARY, FALLBACK = GeminiProvider.MODELS
+
+
+def test_fallthrough_to_second_model_on_429(make_provider, no_sleep):
+    provider = make_provider(
+        side_effect=[_api_error(429), _make_response('{"category": "finance"}')]
+    )
+    result = provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert result == MessageParseResult(category="finance")
+    assert _called_models(provider) == [PRIMARY, FALLBACK]
+    no_sleep.assert_not_called()
+
+
+def test_fallthrough_to_second_model_on_503(make_provider, no_sleep):
+    provider = make_provider(
+        side_effect=[_api_error(503), _make_response('{"category": "finance"}')]
+    )
+    result = provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert result == MessageParseResult(category="finance")
+    assert _called_models(provider) == [PRIMARY, FALLBACK]
+    no_sleep.assert_not_called()
+
+
+def test_retry_cycle_on_both_models_failing(make_provider, no_sleep):
+    provider = make_provider(
+        side_effect=[
+            _api_error(429),
+            _api_error(503),
+            _make_response('{"category": "finance"}'),
+        ]
+    )
+    result = provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert result == MessageParseResult(category="finance")
+    assert _called_models(provider) == [PRIMARY, FALLBACK, PRIMARY]
+    assert no_sleep.call_count == 1
+
+
+def test_exhausts_max_cycles_and_raises(make_provider, no_sleep):
+    total_calls = GeminiProvider.MAX_CYCLES * len(GeminiProvider.MODELS)
+    provider = make_provider(side_effect=[_api_error(503) for _ in range(total_calls)])
+    with pytest.raises(genai_errors.APIError):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert provider.client.models.generate_content.call_count == total_calls
+    assert no_sleep.call_count == GeminiProvider.MAX_CYCLES - 1
+
+
+def test_non_retryable_error_raises_immediately(make_provider, no_sleep):
+    provider = make_provider(side_effect=[_api_error(400)])
+    with pytest.raises(genai_errors.APIError):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert provider.client.models.generate_content.call_count == 1
+    no_sleep.assert_not_called()
+
+
+def test_timeout_error_is_retryable(make_provider, no_sleep):
+    provider = make_provider(
+        side_effect=[
+            httpx.TimeoutException("timeout"),
+            _make_response('{"category": "finance"}'),
+        ]
+    )
+    result = provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert result == MessageParseResult(category="finance")
+    assert _called_models(provider) == [PRIMARY, FALLBACK]
+    no_sleep.assert_not_called()
+
+
+def test_backoff_delay_grows_exponentially(make_provider, no_sleep):
+    total_calls = GeminiProvider.MAX_CYCLES * len(GeminiProvider.MODELS)
+    provider = make_provider(side_effect=[_api_error(503) for _ in range(total_calls)])
+    with pytest.raises(genai_errors.APIError):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    sleeps = [call.args[0] for call in no_sleep.call_args_list]
+    assert sleeps == [
+        GeminiProvider.BACKOFF_BASE_SECONDS,
+        GeminiProvider.BACKOFF_BASE_SECONDS * 2,
+    ]
