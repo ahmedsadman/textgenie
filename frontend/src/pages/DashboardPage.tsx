@@ -37,6 +37,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import PaginationNav from "@/components/PaginationNav";
 import { ApiError, api } from "@/lib/api";
 import type {
   Category,
@@ -46,7 +47,7 @@ import type {
 } from "@/lib/types";
 import { cn, getCategoryColor } from "@/lib/utils";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 export default function DashboardPage() {
   const { user } = useOutletContext<{ user: User }>();
@@ -456,29 +457,11 @@ Content-Type: application/json
             </div>
           )}
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <PaginationNav
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
     </div>
