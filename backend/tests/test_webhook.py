@@ -6,7 +6,7 @@ def test_webhook_creates_message(client):
     register_and_login(client)
     token = get_webhook_token(client)
     response = create_message(client, token, sender="Bank", content="You paid $50")
-    assert response.status_code == 202
+    assert response.status_code == 201
     assert response.json()["message"] == "Message received"
 
     messages = client.get("/api/messages").json()["messages"]
@@ -24,7 +24,7 @@ def test_webhook_parses_unix_ms_timestamp(client):
     register_and_login(client)
     token = get_webhook_token(client)
     response = create_message(client, token, timestamp=1719000000000)
-    assert response.status_code == 202
+    assert response.status_code == 201
 
     messages = client.get("/api/messages").json()["messages"]
     assert "2024-06-21" in messages[0]["received_at"]
@@ -34,7 +34,7 @@ def test_webhook_falls_back_when_no_timestamp(client):
     register_and_login(client)
     token = get_webhook_token(client)
     response = create_message(client, token)
-    assert response.status_code == 202
+    assert response.status_code == 201
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["received_at"] is not None
@@ -44,7 +44,7 @@ def test_webhook_falls_back_on_invalid_timestamp(client):
     register_and_login(client)
     token = get_webhook_token(client)
     response = create_message(client, token, timestamp=-999999999999999)
-    assert response.status_code == 202
+    assert response.status_code == 201
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["received_at"] is not None
@@ -122,7 +122,7 @@ def test_webhook_creates_message_with_unicode(client):
     register_and_login(client)
     token = get_webhook_token(client)
     response = create_message(client, token, sender="বাবা", content="শুভ জন্মদিন 🎂")
-    assert response.status_code == 202
+    assert response.status_code == 201
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["sender"] == "বাবা"
