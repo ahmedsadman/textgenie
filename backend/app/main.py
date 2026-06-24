@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import CORS_ORIGINS
 from app.database import get_db
+from app.logging_config import configure_logging
 from app.routers.auth import router as auth_router
 from app.routers.banks import router as banks_router
 from app.routers.categories import router as categories_router
@@ -15,6 +16,8 @@ from app.routers.messages import router as messages_router
 from app.routers.settings import router as settings_router
 from app.routers.webhook import router as webhook_router
 from app.services.auth import cleanup_expired_sessions
+
+configure_logging()
 
 
 @asynccontextmanager

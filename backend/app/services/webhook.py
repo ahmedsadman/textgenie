@@ -48,7 +48,11 @@ def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Messa
         logger.error("Webhook received with invalid token: %s", token)
         raise HTTPException(status_code=404, detail="Invalid webhook token")
 
-    logger.info("Webhook received for user_id=%d, sender='%s'", user.id, payload.sender)
+    logger.info(
+        "Webhook received for user_id=%d, payload=%s",
+        user.id,
+        payload.model_dump_json(),
+    )
 
     received_at = _parse_timestamp(payload.timestamp)
 
