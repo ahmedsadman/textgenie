@@ -1,7 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer
+
+
+def _as_utc_iso(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
+UtcDatetime = Annotated[
+    datetime, PlainSerializer(_as_utc_iso, return_type=str, when_used="json")
+]
 
 
 class RegisterRequest(BaseModel):
@@ -19,7 +31,7 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
-    created_at: datetime
+    created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
 
@@ -39,7 +51,7 @@ class CategoryUpdateRequest(BaseModel):
 class CategoryResponse(BaseModel):
     id: int
     name: str
-    created_at: datetime
+    created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
 
@@ -59,9 +71,9 @@ class SmsMessageResponse(BaseModel):
     id: int
     sender: str
     content: str
-    received_at: datetime
+    received_at: UtcDatetime
     category: CategoryResponse | None
-    created_at: datetime
+    created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
 
@@ -86,7 +98,7 @@ class BankResponse(BaseModel):
     id: int
     name: str
     last_balance: Decimal | None
-    last_balance_at: datetime | None
-    created_at: datetime
+    last_balance_at: UtcDatetime | None
+    created_at: UtcDatetime
 
     model_config = {"from_attributes": True}

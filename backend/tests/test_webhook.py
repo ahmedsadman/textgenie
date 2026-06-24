@@ -27,7 +27,9 @@ def test_webhook_parses_unix_ms_timestamp(client):
     assert response.status_code == 201
 
     messages = client.get("/api/messages").json()["messages"]
-    assert "2024-06-21" in messages[0]["received_at"]
+    received_at = messages[0]["received_at"]
+    assert "2024-06-21" in received_at
+    assert received_at.endswith("+00:00") or received_at.endswith("Z")
 
 
 def test_webhook_falls_back_when_no_timestamp(client):
