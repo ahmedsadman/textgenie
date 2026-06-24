@@ -17,22 +17,24 @@ _INTRO = (
 )
 
 
-_CATEGORY_EXAMPLES = """\
+_CATEGORY_EXAMPLES = """
 Examples (these use illustrative category names — always use the categories listed above, not the example ones):
 - Message from "BRACBANK": "Your account has been debited 50.00 BDT. Balance: 2000 BDT" -> category: "transaction"
 - Message from "+99002291": "Happy birthday!" -> category: "personal"
 - Message from "+80881092213": "আপনার একাউন্ট থেকে ৫০০ টাকা কেটে নেওয়া হয়েছে" -> category: "transaction"
 - Message from "Daraz": "Win a free iPhone now!" -> category: "promotion"
-- Message from "STARCINEPLEX": "Your ticket is confirmed for Dune on 12th June" -> category: "ticket"\
+- Message from "MTB Cards": "বিশ্বকাপ উপলক্ষে, এমটিবি ক্রেডিট কার্ডে পার্টনার মার্চেন্ট থেকে ০ শতাংশ EMI-এ TV ক্রয়ে ১০,০০০ পর্যন্ত বোনাস এমরিওয়ার্ডজ পয়েন্টস। বিস্তারিত https://tinyurl.com/bdevyvk3" -> category: "promotion"
+- Message from "STARCINEPLEX": "Your ticket is confirmed for Dune on 12th June. Seats: D1, D2" -> category: "ticket"
 """
 
 
-_BANK_EXAMPLES = """\
+_BANK_EXAMPLES = """
 Examples (these use illustrative bank names — always use the bank names listed above, not the example ones):
 - Message from "BRACBANK": "Acct debit 50.00 BDT. Balance: 2000 BDT" with Banks ["BRAC Bank PLC"] -> bank: "BRAC Bank PLC", balance: 2000
 - Message from "EBL": "POS Transaction Amount: 3500 BDT Balance: 100000 BDT" with Banks ["EBL", "City Bank"] -> bank: "EBL", balance: 100000
 - Message from "+88019921": "CITYTOUCH TXN Amount: 3500 BDT Balance: 100000.00 BDT" with Banks ["EBL", "City Bank"] -> bank: "City Bank", balance: 100000.00
-- Message from "Daraz": "Sale starts now!" with Banks ["BRAC Bank PLC"] -> bank: null, balance: null\
+- Message from "Daraz": "Sale starts now!" with Banks ["BRAC Bank PLC"] -> bank: null, balance: null
+- Message from "bKash": "You have received deposit from iBanking of Tk 2,000.00 from City Bank. Fee Tk 0.00. Balance Tk 2,082.19. TrxID DFO7MSENKP" with Banks ["BRAC Bank PLC", "City Bank"] -> bank: null, balance: null
 """
 
 
