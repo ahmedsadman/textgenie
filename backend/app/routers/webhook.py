@@ -8,7 +8,7 @@ from app.services.webhook import parse_message, process_webhook
 router = APIRouter(prefix="/api/webhook", tags=["webhook"])
 
 
-@router.post("/{token}", response_model=MessageResponse, status_code=202)
+@router.post("/{token}", response_model=MessageResponse, status_code=201)
 def receive_message(
     token: str,
     payload: WebhookPayload,

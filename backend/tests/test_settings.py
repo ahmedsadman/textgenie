@@ -45,7 +45,7 @@ def test_regenerate_new_token_works(client):
     new_token = get_webhook_token(client)
 
     response = create_message(client, new_token)
-    assert response.status_code == 202
+    assert response.status_code == 201
 
 
 def test_regenerate_unauthenticated(client):
