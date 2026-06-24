@@ -124,7 +124,7 @@ export default function AppLayout() {
         </header>
 
         <main className="flex-1 p-4 md:p-6">
-          <div className="mx-auto w-full max-w-2xl">
+          <div className="mx-auto w-full max-w-6xl">
             <Outlet context={{ user }} />
           </div>
         </main>

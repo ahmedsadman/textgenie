@@ -37,7 +37,7 @@ const mockMessages = {
   ],
   total: 2,
   page: 1,
-  page_size: 20,
+  page_size: 5,
 };
 
 const emptyMessages = { messages: [], total: 0, page: 1, page_size: 20 };
@@ -193,22 +193,93 @@ describe("DashboardPage", () => {
     });
   });
 
-  it("shows pagination when needed", async () => {
+  it("shows pagination with page numbers when there are multiple pages", async () => {
     server.use(
       http.get("/api/messages", () =>
         HttpResponse.json({
           messages: mockMessages.messages,
-          total: 40,
+          total: 10,
           page: 1,
-          page_size: 20,
+          page_size: 5,
         }),
       ),
     );
     renderDashboard();
 
-    await screen.findByText("Page 1 of 2");
-    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    const page1 = await screen.findByRole("button", { name: "1" });
+    expect(page1).toHaveAttribute("aria-current", "page");
+
+    const page2 = screen.getByRole("button", { name: "2" });
+    expect(page2).not.toHaveAttribute("aria-current", "page");
+
+    expect(screen.getByLabelText("Go to previous page")).toBeDisabled();
+    expect(screen.getByLabelText("Go to next page")).toBeEnabled();
+  });
+
+  it("navigates to page 2 when page 2 button is clicked", async () => {
+    server.use(
+      http.get("/api/messages", ({ request }) => {
+        const url = new URL(request.url);
+        const requestedPage = Number(url.searchParams.get("page") ?? 1);
+        if (requestedPage === 2) {
+          return HttpResponse.json({
+            messages: [
+              {
+                id: 3,
+                sender: "Page2Sender",
+                content: "Page 2 message",
+                received_at: "2026-06-21T12:00:00Z",
+                category: null,
+                created_at: "2026-06-21T12:00:00Z",
+              },
+            ],
+            total: 10,
+            page: 2,
+            page_size: 5,
+          });
+        }
+        return HttpResponse.json({
+          messages: mockMessages.messages,
+          total: 10,
+          page: 1,
+          page_size: 5,
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await screen.findByText("Bank");
+    await user.click(screen.getByRole("button", { name: "2" }));
+
+    await screen.findByText("Page2Sender");
+  });
+
+  it("does not show pagination when all messages fit on one page", async () => {
+    renderDashboard();
+    await screen.findByText("Bank");
+    expect(
+      screen.queryByLabelText("Go to previous page"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows ellipsis for many pages", async () => {
+    server.use(
+      http.get("/api/messages", () =>
+        HttpResponse.json({
+          messages: mockMessages.messages,
+          total: 50,
+          page: 1,
+          page_size: 5,
+        }),
+      ),
+    );
+    renderDashboard();
+
+    await screen.findByRole("button", { name: "1" });
+    expect(screen.getByText("More pages")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "10" })).toBeInTheDocument();
   });
 
   it("has search input and category filter", async () => {
