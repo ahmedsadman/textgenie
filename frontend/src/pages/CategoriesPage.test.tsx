@@ -7,8 +7,24 @@ import CategoriesPage from "@/pages/CategoriesPage";
 import { mockUser, renderWithOutletContext } from "@/test-utils";
 
 const mockCategories = [
-  { id: 1, name: "bills", created_at: "2026-01-01T00:00:00Z" },
-  { id: 2, name: "groceries", created_at: "2026-01-02T00:00:00Z" },
+  {
+    id: 1,
+    name: "bills",
+    is_default: false,
+    created_at: "2026-01-01T00:00:00Z",
+  },
+  {
+    id: 2,
+    name: "groceries",
+    is_default: false,
+    created_at: "2026-01-02T00:00:00Z",
+  },
+  {
+    id: 3,
+    name: "transaction",
+    is_default: true,
+    created_at: "2026-01-01T00:00:00Z",
+  },
 ];
 
 function renderPage() {
@@ -43,10 +59,14 @@ describe("CategoriesPage", () => {
 
   it("adds a new category", async () => {
     server.use(
-      http.get("/api/categories", () => HttpResponse.json([])),
       http.post("/api/categories", () =>
         HttpResponse.json(
-          { id: 1, name: "travel", created_at: "2026-01-01T00:00:00Z" },
+          {
+            id: 10,
+            name: "travel",
+            is_default: false,
+            created_at: "2026-01-01T00:00:00Z",
+          },
           { status: 201 },
         ),
       ),
@@ -56,7 +76,7 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText(/no categories yet/i)).toBeInTheDocument();
+      expect(screen.getByText("bills")).toBeInTheDocument();
     });
 
     await user.type(
@@ -174,5 +194,19 @@ describe("CategoriesPage", () => {
       expect(screen.queryByText("bills")).not.toBeInTheDocument();
     });
     expect(screen.getByText("groceries")).toBeInTheDocument();
+  });
+
+  it("does not show edit/delete buttons for default categories", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("transaction")).toBeInTheDocument();
+    });
+
+    const editButtons = screen.getAllByRole("button", { name: /edit/i });
+    const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
+
+    expect(editButtons).toHaveLength(2);
+    expect(deleteButtons).toHaveLength(2);
   });
 });
