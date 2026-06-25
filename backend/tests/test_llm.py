@@ -5,7 +5,7 @@ import httpx
 import pytest
 from google.genai import errors as genai_errors
 
-from app.services.llm.base import LLMProvider, MessageParseResult
+from app.services.llm.base import LLMProvider, MessageParseResult, ParsePrompt
 from app.services.llm.gemini import GeminiProvider
 
 
@@ -17,6 +17,9 @@ class _ConcreteProvider(LLMProvider):
 def _make_response(text):
     response = MagicMock()
     response.text = text
+    response.usage_metadata.prompt_token_count = 100
+    response.usage_metadata.cached_content_token_count = 0
+    response.usage_metadata.candidates_token_count = 20
     return response
 
 
@@ -180,50 +183,51 @@ def test_bank_not_in_list(make_provider):
 # --- Prompt builder ---
 
 
+def test_prompt_returns_parse_prompt():
+    prompt = build_prompt(categories=["finance"])
+    assert isinstance(prompt, ParsePrompt)
+
+
 def test_prompt_includes_categories_section_when_present():
     prompt = build_prompt(categories=["finance", "personal"])
-    assert "Categories:" in prompt
-    assert '"finance"' in prompt
-    assert "Banks:" not in prompt
+    assert "Categories:" in prompt.contents
+    assert '"finance"' in prompt.contents
+    assert "Banks:" not in prompt.contents
 
 
 def test_prompt_includes_banks_section_when_present():
     prompt = build_prompt(banks=["BRAC Bank PLC", "EBL"])
-    assert "Banks:" in prompt
-    assert '"BRAC Bank PLC"' in prompt
-    assert '"EBL"' in prompt
-    assert "Categories:" not in prompt
+    assert "Banks:" in prompt.contents
+    assert '"BRAC Bank PLC"' in prompt.contents
+    assert '"EBL"' in prompt.contents
+    assert "Categories:" not in prompt.contents
 
 
 def test_prompt_includes_both_sections():
     prompt = build_prompt(categories=["transaction"], banks=["BRAC"])
-    assert "Categories:" in prompt
-    assert "Banks:" in prompt
-    assert '"category"' in prompt
-    assert '"bank"' in prompt
-    assert '"balance"' in prompt
+    assert "Categories:" in prompt.contents
+    assert "Banks:" in prompt.contents
 
 
-def test_prompt_response_shape_is_always_full():
-    # The response JSON always carries all three keys regardless of input,
-    # with null for unavailable fields.
-    for kwargs in (
-        {"categories": ["finance"]},
-        {"banks": ["BRAC"]},
-        {"categories": ["finance"], "banks": ["BRAC"]},
-    ):
-        prompt = build_prompt(**kwargs)
-        assert '"category"' in prompt
-        assert '"bank"' in prompt
-        assert '"balance"' in prompt
+def test_prompt_response_shape_in_system_instruction():
+    prompt = build_prompt(categories=["finance"])
+    assert '"category"' in prompt.system_instruction
+    assert '"bank"' in prompt.system_instruction
+    assert '"balance"' in prompt.system_instruction
+
+
+def test_prompt_examples_in_system_instruction():
+    prompt = build_prompt(categories=["finance"], banks=["BRAC"])
+    assert "Examples" in prompt.system_instruction
+    assert "message parser" in prompt.system_instruction
 
 
 def test_prompt_includes_message_content_and_sender():
     prompt = build_prompt(
         content="You paid 50 BDT", sender="BRACBANK", categories=["transaction"]
     )
-    assert "BRACBANK" in prompt
-    assert "You paid 50 BDT" in prompt
+    assert "BRACBANK" in prompt.contents
+    assert "You paid 50 BDT" in prompt.contents
 
 
 # --- Retry / fallthrough ---
