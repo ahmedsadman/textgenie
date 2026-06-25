@@ -87,22 +87,18 @@ class PaginatedMessagesResponse(BaseModel):
 
 class BankCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    senders: list[str] = Field(default_factory=list, max_length=3)
-    templates: list[str] = Field(default_factory=list)
 
 
 class BankUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     last_balance: Decimal | None = Field(default=None, ge=0)
-    senders: list[str] | None = None
-    templates: list[str] | None = None
 
 
 class BankResponse(BaseModel):
     id: int
     name: str
-    senders: list[str]
-    templates: list[str]
     last_balance: Decimal | None
     last_balance_at: UtcDatetime | None
     created_at: UtcDatetime
+
+    model_config = {"from_attributes": True}

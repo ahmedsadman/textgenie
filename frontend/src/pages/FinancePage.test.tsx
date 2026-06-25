@@ -10,8 +10,6 @@ const mockBanks = [
   {
     id: 1,
     name: "BRAC Bank",
-    senders: ["BRACBANK"],
-    templates: ["Balance: {{balance}} BDT"],
     last_balance: "1500.00",
     last_balance_at: "2026-06-20T10:00:00Z",
     created_at: "2026-01-01T00:00:00Z",
@@ -19,8 +17,6 @@ const mockBanks = [
   {
     id: 2,
     name: "EBL",
-    senders: [],
-    templates: [],
     last_balance: null,
     last_balance_at: null,
     created_at: "2026-01-02T00:00:00Z",
@@ -43,6 +39,7 @@ describe("FinancePage", () => {
       expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
     });
     expect(screen.getByText("EBL")).toBeInTheDocument();
+    // 1,500.00 appears twice: once as the bank's balance, once as the total.
     expect(screen.getAllByText("1,500.00")).toHaveLength(2);
     expect(screen.getByText(/total balance/i)).toBeInTheDocument();
   });
@@ -72,8 +69,6 @@ describe("FinancePage", () => {
     const newBank = {
       id: 1,
       name: "City Bank",
-      senders: [],
-      templates: [],
       last_balance: null,
       last_balance_at: null,
       created_at: "2026-06-24T00:00:00Z",
@@ -125,11 +120,14 @@ describe("FinancePage", () => {
     });
   });
 
-  it("edits a bank name via expandable panel", async () => {
+  it("edits a bank name inline", async () => {
     let putCalled = false;
     const renamed = {
-      ...mockBanks[0],
+      id: 1,
       name: "BRAC Bank PLC",
+      last_balance: "1500.00",
+      last_balance_at: "2026-06-20T10:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
     };
     server.use(
       http.put("/api/banks/1", () => {
@@ -164,9 +162,11 @@ describe("FinancePage", () => {
   it("edits a bank balance manually and updates total", async () => {
     let putCalled = false;
     const updated = {
-      ...mockBanks[1],
+      id: 2,
+      name: "EBL",
       last_balance: "500.00",
       last_balance_at: "2026-06-24T00:00:00Z",
+      created_at: "2026-01-02T00:00:00Z",
     };
     server.use(
       http.put("/api/banks/2", () => {
@@ -251,78 +251,5 @@ describe("FinancePage", () => {
       expect(screen.queryByText("BRAC Bank")).not.toBeInTheDocument();
     });
     expect(screen.getByText("EBL")).toBeInTheDocument();
-  });
-
-  it("shows sender names in the edit panel", async () => {
-    renderPage();
-    const user = userEvent.setup();
-
-    await waitFor(() => {
-      expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
-    });
-
-    const editButtons = screen.getAllByRole("button", { name: /edit/i });
-    await user.click(editButtons[0]);
-
-    expect(screen.getByDisplayValue("BRACBANK")).toBeInTheDocument();
-  });
-
-  it("shows templates in the edit panel", async () => {
-    renderPage();
-    const user = userEvent.setup();
-
-    await waitFor(() => {
-      expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
-    });
-
-    const editButtons = screen.getAllByRole("button", { name: /edit/i });
-    await user.click(editButtons[0]);
-
-    expect(
-      screen.getByDisplayValue("Balance: {{balance}} BDT"),
-    ).toBeInTheDocument();
-  });
-
-  it("adds and removes senders", async () => {
-    renderPage();
-    const user = userEvent.setup();
-
-    await waitFor(() => {
-      expect(screen.getByText("EBL")).toBeInTheDocument();
-    });
-
-    const editButtons = screen.getAllByRole("button", { name: /edit/i });
-    await user.click(editButtons[1]);
-
-    const senderInputs = screen.getAllByPlaceholderText(/e\.g\. BRACBANK/i);
-    expect(senderInputs).toHaveLength(1);
-
-    await user.type(senderInputs[0], "EBLBANK");
-    expect(screen.getByDisplayValue("EBLBANK")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /remove sender/i }));
-    expect(screen.queryByDisplayValue("EBLBANK")).not.toBeInTheDocument();
-  });
-
-  it("adds and removes templates", async () => {
-    renderPage();
-    const user = userEvent.setup();
-
-    await waitFor(() => {
-      expect(screen.getByText("EBL")).toBeInTheDocument();
-    });
-
-    const editButtons = screen.getAllByRole("button", { name: /edit/i });
-    await user.click(editButtons[1]);
-
-    await user.click(screen.getByRole("button", { name: /add template/i }));
-    const textareas = screen
-      .getAllByRole("textbox")
-      .filter((el) => el.tagName === "TEXTAREA");
-    expect(textareas.length).toBeGreaterThanOrEqual(1);
-
-    await user.click(
-      screen.getAllByRole("button", { name: /remove template/i })[0],
-    );
   });
 });

@@ -8,17 +8,9 @@ import type {
   WebhookSettings,
 } from "@/lib/types";
 
-export interface BankCreate {
-  name: string;
-  senders?: string[];
-  templates?: string[];
-}
-
 export interface BankUpdate {
   name?: string;
   last_balance?: string;
-  senders?: string[];
-  templates?: string[];
 }
 
 export class ApiError extends Error {
@@ -96,8 +88,8 @@ export const api = {
 
   getBanks: () => client.get<Bank[]>("/banks").then((r) => r.data),
 
-  createBank: (data: BankCreate) =>
-    client.post<Bank>("/banks", data).then((r) => r.data),
+  createBank: (name: string) =>
+    client.post<Bank>("/banks", { name }).then((r) => r.data),
 
   updateBank: (id: number, data: BankUpdate) =>
     client.put<Bank>(`/banks/${id}`, data).then((r) => r.data),
