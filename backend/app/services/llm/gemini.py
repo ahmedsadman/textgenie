@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from decimal import Decimal
 
 import httpx
 from google import genai
@@ -41,20 +40,16 @@ class GeminiProvider(LLMProvider):
         message_content: str,
         sender: str,
         categories: list[str],
-        banks: list[str] | None = None,
     ) -> MessageParseResult:
-        banks = banks or []
-        if not categories and not banks:
-            logger.warning("No categories or banks provided — skipping message parsing")
+        if not categories:
+            logger.warning("No categories provided — skipping message parsing")
             return MessageParseResult()
 
-        prompt = self.build_message_parse_prompt(
-            message_content, sender, categories, banks
-        )
-        logger.info("Sending message to LLM for parsing")
+        prompt = self.build_message_parse_prompt(message_content, sender, categories)
+        logger.info("Sending message to LLM for categorization")
 
         response_text = self._generate_with_fallback(prompt)
-        return self._parse_response(response_text, categories, banks)
+        return self._parse_response(response_text, categories)
 
     def _generate_with_fallback(self, prompt: str) -> str | None:
         last_exc: BaseException | None = None
@@ -103,7 +98,6 @@ class GeminiProvider(LLMProvider):
         self,
         response_text: str | None,
         categories: list[str],
-        banks: list[str],
     ) -> MessageParseResult:
         if not response_text:
             logger.error("LLM returned empty response")
@@ -111,14 +105,10 @@ class GeminiProvider(LLMProvider):
 
         data = json.loads(response_text)
         category = _match_category(data.get("category"), categories)
-        bank = _match_bank(data.get("bank"), banks)
-        balance = _parse_balance(data.get("balance")) if bank else None
 
         if category:
             logger.info("LLM categorized message as '%s'", category)
-        if bank:
-            logger.info("LLM identified bank '%s' with balance %s", bank, balance)
-        return MessageParseResult(category=category, bank=bank, balance=balance)
+        return MessageParseResult(category=category)
 
 
 def _match_category(raw: str | None, categories: list[str]) -> str | None:
@@ -131,21 +121,3 @@ def _match_category(raw: str | None, categories: list[str]) -> str | None:
         if c.lower() == name:
             return c
     return None
-
-
-def _match_bank(raw: str | None, banks: list[str]) -> str | None:
-    if not raw:
-        return None
-    name = raw.strip().lower()
-    if not name:
-        return None
-    for b in banks:
-        if b.lower() == name:
-            return b
-    return None
-
-
-def _parse_balance(raw: int | float | str | None) -> Decimal | None:
-    if raw is None:
-        return None
-    return Decimal(str(raw))

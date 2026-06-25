@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import selectinload
 
 from app.config import GEMINI_API_KEY
 from app.database import SessionLocal
@@ -10,6 +11,7 @@ from app.models import Bank, Category, Message, User
 from app.schemas import WebhookPayload
 from app.services.llm.base import MessageParseResult
 from app.services.llm.provider import get_llm_provider
+from app.services.template_parser import extract_bank_data
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +26,10 @@ def _parse_timestamp(timestamp: int | None) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _parse(
+def _categorize(
     message_content: str,
     sender: str,
     categories: list[str],
-    banks: list[str],
 ) -> MessageParseResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping message parsing")
@@ -36,7 +37,7 @@ def _parse(
 
     try:
         provider = get_llm_provider()
-        return provider.parse_message(message_content, sender, categories, banks)
+        return provider.parse_message(message_content, sender, categories)
     except Exception:
         logger.error("LLM message parsing failed", exc_info=True)
         return MessageParseResult()
@@ -82,13 +83,34 @@ def parse_message(message_id: int) -> None:
         categories = (
             db.query(Category).filter(Category.user_id == message.user_id).all()
         )
-        banks = db.query(Bank).filter(Bank.user_id == message.user_id).all()
+        banks = (
+            db.query(Bank)
+            .filter(Bank.user_id == message.user_id)
+            .options(selectinload(Bank.senders), selectinload(Bank.templates))
+            .all()
+        )
 
-        result = _parse(
+        match = extract_bank_data(message.sender, message.content, banks)
+        if match:
+            bank, balance = match
+            is_newer = (
+                bank.last_balance_at is None
+                or message.received_at > bank.last_balance_at
+            )
+            if is_newer:
+                bank.last_balance = balance
+                bank.last_balance_at = message.received_at
+                logger.info(
+                    "Bank id=%d balance updated to %s from message id=%d",
+                    bank.id,
+                    balance,
+                    message_id,
+                )
+
+        result = _categorize(
             message.content,
             message.sender,
             [c.name for c in categories],
-            [b.name for b in banks],
         )
 
         if result.category:
@@ -97,23 +119,6 @@ def parse_message(message_id: int) -> None:
                 message.category_id = category.id
                 logger.info(
                     "Message id=%d categorized as '%s'", message_id, category.name
-                )
-
-        if result.bank and result.balance is not None:
-            bank = next(
-                (b for b in banks if b.name.lower() == result.bank.lower()), None
-            )
-            if bank and (
-                bank.last_balance_at is None
-                or message.received_at > bank.last_balance_at
-            ):
-                bank.last_balance = result.balance
-                bank.last_balance_at = message.received_at
-                logger.info(
-                    "Bank id=%d balance updated to %s from message id=%d",
-                    bank.id,
-                    result.balance,
-                    message_id,
                 )
 
         db.commit()
