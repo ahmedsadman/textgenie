@@ -5,6 +5,7 @@ import httpx
 import pytest
 from google.genai import errors as genai_errors
 
+from app.services.llm import gemini as gemini_module
 from app.services.llm.base import LLMProvider, MessageParseResult, ParsePrompt
 from app.services.llm.gemini import GeminiProvider
 
@@ -310,3 +311,39 @@ def test_backoff_delay_grows_exponentially(make_provider, no_sleep):
         GeminiProvider.BACKOFF_BASE_SECONDS,
         GeminiProvider.BACKOFF_BASE_SECONDS * 2,
     ]
+
+
+# --- Model usage stats ---
+
+
+@pytest.fixture(autouse=True)
+def _reset_model_stats():
+    gemini_module._model_counts.clear()
+    gemini_module._total_requests = 0
+    yield
+
+
+def test_model_stats_logged_every_10_requests(make_provider, caplog):
+    provider = make_provider('{"category": "finance"}')
+    for _ in range(10):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert "LLM model stats (total=10)" in caplog.text
+    assert f"{PRIMARY}=100.0%" in caplog.text
+
+
+def test_model_stats_not_logged_before_10(make_provider, caplog):
+    provider = make_provider('{"category": "finance"}')
+    for _ in range(9):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert "LLM model stats" not in caplog.text
+
+
+def test_model_stats_includes_fallback(make_provider, no_sleep, caplog):
+    responses = []
+    for _ in range(10):
+        responses.extend([_api_error(429), _make_response('{"category": "f"}')])
+    provider = make_provider(side_effect=responses)
+    for _ in range(10):
+        provider.parse_message("Paid $50", "Bank", ["finance"])
+    assert "LLM model stats (total=10)" in caplog.text
+    assert f"{FALLBACK}=100.0%" in caplog.text
