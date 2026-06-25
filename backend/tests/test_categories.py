@@ -1,3 +1,5 @@
+from app.services.categories import DEFAULT_CATEGORIES
+
 from tests.conftest import register_and_login
 
 
@@ -58,14 +60,15 @@ def test_list_categories(client):
     register_and_login(client)
     create_category(client, name="travel")
     create_category(client, name="groceries")
-    create_category(client, name="bills")
 
     response = client.get("/api/categories")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
     names = [c["name"] for c in data]
-    assert names == ["bills", "groceries", "travel"]
+    for default in DEFAULT_CATEGORIES:
+        assert default in names
+    assert "travel" in names
+    assert "groceries" in names
 
 
 def test_list_categories_only_own(client):
@@ -77,9 +80,11 @@ def test_list_categories_only_own(client):
 
     response = client.get("/api/categories")
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["name"] == "user2-cat"
+    names = [c["name"] for c in response.json()]
+    assert "user2-cat" in names
+    assert "user1-cat" not in names
+    for default in DEFAULT_CATEGORIES:
+        assert default in names
 
 
 def test_list_categories_unauthenticated(client):
@@ -154,7 +159,8 @@ def test_delete_category(client):
     assert response.json()["message"] == "Category deleted"
 
     response = client.get("/api/categories")
-    assert len(response.json()) == 0
+    names = [c["name"] for c in response.json()]
+    assert "groceries" not in names
 
 
 def test_delete_category_not_found(client):
@@ -170,3 +176,40 @@ def test_delete_other_users_category(client):
     register_and_login(client, email="user2@example.com")
     response = client.delete(f"/api/categories/{cat_id}")
     assert response.status_code == 404
+
+
+# --- Default categories ---
+
+
+def test_default_categories_in_listing(client):
+    register_and_login(client)
+    response = client.get("/api/categories")
+    data = response.json()
+    defaults = [c for c in data if c["is_default"]]
+    assert {c["name"] for c in defaults} == set(DEFAULT_CATEGORIES)
+
+
+def test_cannot_update_default_category(client):
+    register_and_login(client)
+    response = client.get("/api/categories")
+    default_cat = next(c for c in response.json() if c["is_default"])
+
+    response = client.put(
+        f"/api/categories/{default_cat['id']}", json={"name": "renamed"}
+    )
+    assert response.status_code == 403
+
+
+def test_cannot_delete_default_category(client):
+    register_and_login(client)
+    response = client.get("/api/categories")
+    default_cat = next(c for c in response.json() if c["is_default"])
+
+    response = client.delete(f"/api/categories/{default_cat['id']}")
+    assert response.status_code == 403
+
+
+def test_cannot_create_category_with_default_name(client):
+    register_and_login(client)
+    response = create_category(client, name="transaction")
+    assert response.status_code == 409

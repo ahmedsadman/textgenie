@@ -8,6 +8,7 @@ from app.config import GEMINI_API_KEY
 from app.database import SessionLocal
 from app.models import Bank, Category, Message, User
 from app.schemas import WebhookPayload
+from app.services.categories import _categories_filter
 from app.services.llm.base import MessageParseResult
 from app.services.llm.provider import get_llm_provider
 
@@ -80,7 +81,7 @@ def parse_message(message_id: int) -> None:
             return
 
         categories = (
-            db.query(Category).filter(Category.user_id == message.user_id).all()
+            db.query(Category).filter(_categories_filter(message.user_id)).all()
         )
         banks = db.query(Bank).filter(Bank.user_id == message.user_id).all()
 

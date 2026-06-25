@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, PlainSerializer
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
 
 
 def _as_utc_iso(dt: datetime) -> str:
@@ -51,9 +51,17 @@ class CategoryUpdateRequest(BaseModel):
 class CategoryResponse(BaseModel):
     id: int
     name: str
+    is_default: bool = False
     created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _from_orm(cls, data, handler):
+        if hasattr(data, "user_id"):
+            data.is_default = data.user_id is None
+        return handler(data)
 
 
 class WebhookPayload(BaseModel):
