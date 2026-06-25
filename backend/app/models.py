@@ -127,3 +127,34 @@ class Bank(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="banks")
+    senders: Mapped[list["BankSender"]] = relationship(
+        back_populates="bank", cascade="all, delete-orphan"
+    )
+    templates: Mapped[list["BankTemplate"]] = relationship(
+        back_populates="bank", cascade="all, delete-orphan"
+    )
+
+
+class BankSender(Base):
+    __tablename__ = "bank_senders"
+    __table_args__ = (UniqueConstraint("bank_id", "name", name="uq_bank_sender_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bank_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("banks.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    bank: Mapped["Bank"] = relationship(back_populates="senders")
+
+
+class BankTemplate(Base):
+    __tablename__ = "bank_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bank_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("banks.id", ondelete="CASCADE"), nullable=False
+    )
+    template: Mapped[str] = mapped_column(Text, nullable=False)
+
+    bank: Mapped["Bank"] = relationship(back_populates="templates")

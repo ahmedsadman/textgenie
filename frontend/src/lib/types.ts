@@ -35,6 +35,8 @@ export interface WebhookSettings {
 export interface Bank {
   id: number;
   name: string;
+  senders: string[];
+  templates: string[];
   last_balance: string | null;
   last_balance_at: string | null;
   created_at: string;
