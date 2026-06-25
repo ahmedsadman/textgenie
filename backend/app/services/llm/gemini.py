@@ -13,6 +13,8 @@ from app.services.llm.base import LLMProvider, MessageParseResult, ParsePrompt
 
 logger = logging.getLogger(__name__)
 
+# --- Helpers ---
+
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 _RETRYABLE_NETWORK_ERRORS = (
     httpx.TimeoutException,
@@ -26,6 +28,56 @@ def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, genai_errors.APIError):
         return exc.code in _RETRYABLE_STATUS_CODES
     return isinstance(exc, _RETRYABLE_NETWORK_ERRORS)
+
+
+_model_counts: dict[str, int] = {}
+_total_requests = 0
+_STATS_INTERVAL = 10
+
+
+def _track_model_usage(model: str) -> None:
+    global _total_requests
+    _total_requests += 1
+    _model_counts[model] = _model_counts.get(model, 0) + 1
+    if _total_requests % _STATS_INTERVAL == 0:
+        parts = [
+            f"{m}={c / _total_requests:.1%}" for m, c in sorted(_model_counts.items())
+        ]
+        logger.info(
+            "LLM model stats (total=%d): %s",
+            _total_requests,
+            ", ".join(parts),
+        )
+
+
+def _match_category(raw: str | None, categories: list[str]) -> str | None:
+    if not raw:
+        return None
+    name = raw.strip().lower()
+    if not name or name == "uncategorized":
+        return None
+    for c in categories:
+        if c.lower() == name:
+            return c
+    return None
+
+
+def _match_bank(raw: str | None, banks: list[str]) -> str | None:
+    if not raw:
+        return None
+    name = raw.strip().lower()
+    if not name:
+        return None
+    for b in banks:
+        if b.lower() == name:
+            return b
+    return None
+
+
+def _parse_balance(raw: int | float | str | None) -> Decimal | None:
+    if raw is None:
+        return None
+    return Decimal(str(raw))
 
 
 class GeminiProvider(LLMProvider):
@@ -76,6 +128,7 @@ class GeminiProvider(LLMProvider):
                         usage.cached_content_token_count,
                         usage.candidates_token_count,
                     )
+                    _track_model_usage(model)
                     return response.text
                 except Exception as exc:
                     if not _is_retryable(exc):
@@ -127,33 +180,3 @@ class GeminiProvider(LLMProvider):
         if bank:
             logger.info("LLM identified bank '%s' with balance %s", bank, balance)
         return MessageParseResult(category=category, bank=bank, balance=balance)
-
-
-def _match_category(raw: str | None, categories: list[str]) -> str | None:
-    if not raw:
-        return None
-    name = raw.strip().lower()
-    if not name or name == "uncategorized":
-        return None
-    for c in categories:
-        if c.lower() == name:
-            return c
-    return None
-
-
-def _match_bank(raw: str | None, banks: list[str]) -> str | None:
-    if not raw:
-        return None
-    name = raw.strip().lower()
-    if not name:
-        return None
-    for b in banks:
-        if b.lower() == name:
-            return b
-    return None
-
-
-def _parse_balance(raw: int | float | str | None) -> Decimal | None:
-    if raw is None:
-        return None
-    return Decimal(str(raw))

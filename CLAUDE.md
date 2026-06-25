@@ -24,3 +24,4 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend uv r
 - Do NOT add Claude co-author info in the commits you create
 - Prefer short and simple commit messages
 - When fixing lint/formatting issues, always amend commit. Do NOT create new commits
+- Before opening a PR or pushing to a branch, ALWAYS run lint and format checks. If only "backend/" changed, run only backend related lint + format, same goes for "frontend/".
