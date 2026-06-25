@@ -1,5 +1,4 @@
 from app.services.categories import DEFAULT_CATEGORIES
-
 from tests.conftest import register_and_login
 
 

@@ -70,7 +70,7 @@ class GeminiProvider(LLMProvider):
                     )
                     usage = response.usage_metadata
                     logger.info(
-                        "LLM response: model=%s, input_tokens=%s, cached_tokens=%s, output_tokens=%s",
+                        "LLM response: model=%s, input=%s, cached=%s, output=%s",
                         model,
                         usage.prompt_token_count,
                         usage.cached_content_token_count,
