@@ -56,7 +56,9 @@ def update_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     if category.user_id is None:
-        raise HTTPException(status_code=403, detail="Default categories cannot be modified")
+        raise HTTPException(
+            status_code=403, detail="Default categories cannot be modified"
+        )
 
     name = data.name.strip().lower()
     conflict = (
@@ -89,7 +91,9 @@ def delete_category(db: DBSession, user: User, category_id: int) -> None:
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     if category.user_id is None:
-        raise HTTPException(status_code=403, detail="Default categories cannot be deleted")
+        raise HTTPException(
+            status_code=403, detail="Default categories cannot be deleted"
+        )
 
     db.delete(category)
     db.commit()

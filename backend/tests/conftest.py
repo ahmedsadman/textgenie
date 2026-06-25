@@ -1,13 +1,19 @@
+import hashlib
+import os
 from unittest.mock import patch
+
+os.environ["GEMINI_API_KEY"] = ""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.models import Category
+from app.services.categories import DEFAULT_CATEGORIES
 from app.services.webhook import parse_message
 
 engine = create_engine(
@@ -16,6 +22,17 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestSessionLocal = sessionmaker(bind=engine)
+
+
+def _fast_hashpw(password: bytes, salt: bytes) -> bytes:
+    return hashlib.sha256(password).hexdigest().encode()
+
+
+def _fast_checkpw(password: bytes, hashed: bytes) -> bool:
+    return hashlib.sha256(password).hexdigest().encode() == hashed
+
+
+_TABLE_NAMES = [t.name for t in reversed(Base.metadata.sorted_tables)]
 
 
 def override_get_db():
@@ -29,11 +46,32 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _create_schema():
+    Base.metadata.create_all(bind=engine)
+
+
 @pytest.fixture(autouse=True)
 def setup_db():
-    Base.metadata.create_all(bind=engine)
+    db = TestSessionLocal()
+    for name in DEFAULT_CATEGORIES:
+        db.add(Category(name=name, user_id=None))
+    db.commit()
+    db.close()
     yield
-    Base.metadata.drop_all(bind=engine)
+    with engine.connect() as conn:
+        for table in _TABLE_NAMES:
+            conn.execute(text(f"DELETE FROM {table}"))
+        conn.commit()
+
+
+@pytest.fixture(autouse=True)
+def _fast_bcrypt():
+    with (
+        patch("bcrypt.hashpw", side_effect=_fast_hashpw),
+        patch("bcrypt.checkpw", side_effect=_fast_checkpw),
+    ):
+        yield
 
 
 @pytest.fixture()
