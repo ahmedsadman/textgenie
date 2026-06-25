@@ -10,6 +10,12 @@ class MessageParseResult:
     balance: Decimal | None = None
 
 
+@dataclass
+class ParsePrompt:
+    system_instruction: str
+    contents: str
+
+
 _INTRO = (
     "You are a message parser. Given an SMS message, extract structured information from it.\n"
     "The message may be in any language (English, Bengali, Arabic, Chinese, etc.). "
@@ -18,7 +24,7 @@ _INTRO = (
 
 
 _CATEGORY_EXAMPLES = """
-Examples (these use illustrative category names — always use the categories listed above, not the example ones):
+Examples (these use illustrative category names — always use the categories provided by the user, not the example ones):
 - Message from "BRACBANK": "Your account has been debited 50.00 BDT. Balance: 2000 BDT" -> category: "transaction"
 - Message from "+99002291": "Happy birthday!" -> category: "personal"
 - Message from "+80881092213": "আপনার একাউন্ট থেকে ৫০০ টাকা কেটে নেওয়া হয়েছে" -> category: "transaction"
@@ -29,7 +35,7 @@ Examples (these use illustrative category names — always use the categories li
 
 
 _BANK_EXAMPLES = """
-Examples (these use illustrative bank names — always use the bank names listed above, not the example ones):
+Examples (these use illustrative bank names — always use the bank names provided by the user, not the example ones):
 - Message from "BRACBANK": "Acct debit 50.00 BDT. Balance: 2000 BDT" with Banks ["BRAC Bank PLC"] -> bank: "BRAC Bank PLC", balance: 2000
 - Message from "EBL": "POS Transaction Amount: 3500 BDT Balance: 100000 BDT" with Banks ["EBL", "City Bank"] -> bank: "EBL", balance: 100000
 - Message from "+88019921": "CITYTOUCH TXN Amount: 3500 BDT Balance: 100000.00 BDT" with Banks ["EBL", "City Bank"] -> bank: "City Bank", balance: 100000.00
@@ -58,32 +64,38 @@ class LLMProvider(ABC):
         sender: str,
         categories: list[str],
         banks: list[str] | None = None,
-    ) -> str:
+    ) -> ParsePrompt:
         banks = banks or []
-        sections: list[str] = [_INTRO]
+
+        system_sections: list[str] = [_INTRO]
+        system_sections.append(_CATEGORY_EXAMPLES)
+        system_sections.append(_BANK_EXAMPLES)
+        system_sections.append(_RESPONSE_SHAPE)
+
+        user_sections: list[str] = []
 
         if categories:
             categories_str = ", ".join(f'"{c}"' for c in categories)
-            sections.append(
+            user_sections.append(
                 f"Categorize the message into one of the categories below.\n"
                 f"Categories: [{categories_str}]"
             )
-            sections.append(_CATEGORY_EXAMPLES)
 
         if banks:
             banks_str = ", ".join(f'"{b}"' for b in banks)
-            sections.append(
+            user_sections.append(
                 f"The user owns the following banks. If the message appears to be from one of "
                 f"these banks (based on sender or content), identify the bank and extract the "
                 f"latest balance mentioned in the message.\n"
                 f"Banks: [{banks_str}]"
             )
-            sections.append(_BANK_EXAMPLES)
 
-        sections.append(f'Message from "{sender}":\n"{content}"')
-        sections.append(_RESPONSE_SHAPE)
+        user_sections.append(f'Message from "{sender}":\n"{content}"')
 
-        return "\n\n".join(sections)
+        return ParsePrompt(
+            system_instruction="\n\n".join(system_sections),
+            contents="\n\n".join(user_sections),
+        )
 
     @abstractmethod
     def parse_message(

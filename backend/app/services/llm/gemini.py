@@ -9,7 +9,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.config import GEMINI_API_KEY
-from app.services.llm.base import LLMProvider, MessageParseResult
+from app.services.llm.base import LLMProvider, MessageParseResult, ParsePrompt
 
 logger = logging.getLogger(__name__)
 
@@ -51,22 +51,30 @@ class GeminiProvider(LLMProvider):
         prompt = self.build_message_parse_prompt(
             message_content, sender, categories, banks
         )
-        logger.info("Sending message to LLM for parsing")
 
         response_text = self._generate_with_fallback(prompt)
         return self._parse_response(response_text, categories, banks)
 
-    def _generate_with_fallback(self, prompt: str) -> str | None:
+    def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
         last_exc: BaseException | None = None
         for cycle in range(self.MAX_CYCLES):
             for model in self.MODELS:
                 try:
                     response = self.client.models.generate_content(
                         model=model,
-                        contents=prompt,
+                        contents=prompt.contents,
                         config=types.GenerateContentConfig(
                             response_mime_type="application/json",
+                            system_instruction=prompt.system_instruction,
                         ),
+                    )
+                    usage = response.usage_metadata
+                    logger.info(
+                        "LLM response: model=%s, input_tokens=%s, cached_tokens=%s, output_tokens=%s",
+                        model,
+                        usage.prompt_token_count,
+                        usage.cached_content_token_count,
+                        usage.candidates_token_count,
                     )
                     return response.text
                 except Exception as exc:
