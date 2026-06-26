@@ -401,7 +401,7 @@ Content-Type: application/json
                         {new Date(msg.received_at).toLocaleString()}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground break-words">
+                    <p className="mt-1 text-sm text-muted-foreground wrap-anywhere">
                       {msg.content}
                     </p>
                     <div className="mt-2">
