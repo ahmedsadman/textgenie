@@ -1,3 +1,5 @@
+from enum import Enum
+
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session as DBSession
@@ -5,7 +7,10 @@ from sqlalchemy.orm import Session as DBSession
 from app.models import Category, User
 from app.schemas import CategoryCreateRequest, CategoryUpdateRequest
 
-DEFAULT_CATEGORIES = ("transaction", "bill")
+
+class DefaultCategory(str, Enum):
+    TRANSACTION = "transaction"
+    BILL = "bill"
 
 
 def _categories_filter(user_id: int):

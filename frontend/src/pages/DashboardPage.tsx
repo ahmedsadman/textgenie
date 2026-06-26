@@ -3,18 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { Popover } from "@base-ui/react/popover";
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Check,
-  Copy,
-  Filter,
-  Loader2,
-  RefreshCw,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ChevronDown, Filter, Search, Trash2, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -39,24 +28,13 @@ import {
 import { Input } from "@/components/ui/input";
 import PaginationNav from "@/components/PaginationNav";
 import { ApiError, api } from "@/lib/api";
-import type {
-  Category,
-  PaginatedMessages,
-  User,
-  WebhookSettings,
-} from "@/lib/types";
-import { cn, getCategoryColor } from "@/lib/utils";
+import type { Category, PaginatedMessages, User } from "@/lib/types";
+import { cn, formatMessageDateTime, getCategoryColor } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
 
 export default function DashboardPage() {
   const { user } = useOutletContext<{ user: User }>();
-
-  const [webhook, setWebhook] = useState<WebhookSettings | null>(null);
-  const [instructionsOpen, setInstructionsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [regenerateOpen, setRegenerateOpen] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [messages, setMessages] = useState<PaginatedMessages | null>(null);
@@ -74,8 +52,7 @@ export default function DashboardPage() {
     async function load() {
       const trimmedSearch = debouncedSearch.trim();
       try {
-        const [webhookData, categoriesData, messagesData] = await Promise.all([
-          webhook ? Promise.resolve(webhook) : api.getWebhookSettings(),
+        const [categoriesData, messagesData] = await Promise.all([
           categories.length > 0
             ? Promise.resolve(categories)
             : api.getCategories(),
@@ -88,7 +65,6 @@ export default function DashboardPage() {
           }),
         ]);
         if (cancelled) return;
-        setWebhook(webhookData);
         setCategories(categoriesData);
         setMessages(messagesData);
       } catch {
@@ -123,32 +99,6 @@ export default function DashboardPage() {
   function clearCategoryFilter() {
     setSelectedCategories([]);
     setPage(1);
-  }
-
-  async function handleCopy() {
-    if (!webhook) return;
-    await navigator.clipboard.writeText(webhook.webhook_url);
-    setCopied(true);
-    toast.success("Copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleRegenerate() {
-    setRegenerating(true);
-    try {
-      const data = await api.regenerateWebhookToken();
-      setWebhook(data);
-      toast.success("Webhook token regenerated");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to regenerate token");
-      }
-    } finally {
-      setRegenerating(false);
-      setRegenerateOpen(false);
-    }
   }
 
   async function handleDeleteMessage(messageId: number) {
@@ -201,105 +151,6 @@ export default function DashboardPage() {
           <CardTitle className="text-2xl">Dashboard</CardTitle>
           <CardDescription>Welcome back, {user.name}!</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Webhook URL</label>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={webhook?.webhook_url ?? ""}
-                className="flex-1 font-mono text-xs"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleCopy}
-                aria-label="Copy webhook URL"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-              <AlertDialog
-                open={regenerateOpen}
-                onOpenChange={(open) => {
-                  if (!regenerating) setRegenerateOpen(open);
-                }}
-              >
-                <AlertDialogTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label="Regenerate token"
-                    />
-                  }
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerate token</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will invalidate your current webhook URL. Any devices
-                      using the old URL will stop working.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={regenerating}>
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      onClick={handleRegenerate}
-                      disabled={regenerating}
-                    >
-                      {regenerating ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Regenerating...
-                        </>
-                      ) : (
-                        "Regenerate"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-
-          <div>
-            <button
-              onClick={() => setInstructionsOpen(!instructionsOpen)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {instructionsOpen ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )}
-              Setup Instructions
-            </button>
-            {instructionsOpen && (
-              <pre className="mt-2 rounded-lg bg-muted p-3 text-xs overflow-x-auto">
-                {`POST ${webhook?.webhook_url ?? "<webhook-url>"}
-Content-Type: application/json
-
-{
-  "sender": "+1234567890",
-  "content": "Your message text",
-  "timestamp": 1719000000000
-}
-
-// timestamp is optional (unix milliseconds)
-// If omitted, the current time is used`}
-              </pre>
-            )}
-          </div>
-        </CardContent>
       </Card>
 
       <Card>
@@ -383,7 +234,7 @@ Content-Type: application/json
             <p className="py-8 text-center text-sm text-muted-foreground">
               {hasFilter
                 ? "No messages found"
-                : "No messages yet. Configure your phone to send SMS to the webhook URL above."}
+                : "No messages yet. Configure your phone to send SMS to the webhook URL on the Settings page."}
             </p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -398,7 +249,7 @@ Content-Type: application/json
                         {msg.sender}
                       </span>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(msg.received_at).toLocaleString()}
+                        {formatMessageDateTime(msg.received_at)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground wrap-anywhere">

@@ -1,11 +1,13 @@
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy import or_, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import joinedload
 
 from app.models import Message, User
+
+SENDERS_LIMIT = 100
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,19 @@ def list_messages(
     )
 
     return messages, total
+
+
+def list_senders(db: DBSession, user: User, limit: int = SENDERS_LIMIT) -> list[str]:
+    """Distinct senders for a user, ordered by most-recently-seen first."""
+    rows = (
+        db.query(Message.sender, func.max(Message.received_at).label("last_seen"))
+        .filter(Message.user_id == user.id)
+        .group_by(Message.sender)
+        .order_by(func.max(Message.received_at).desc())
+        .limit(limit)
+        .all()
+    )
+    return [row[0] for row in rows]
 
 
 def delete_message(db: DBSession, user: User, message_id: int) -> None:

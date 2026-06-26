@@ -1,5 +1,13 @@
-from app.services.llm.base import MessageParseResult
-from tests.conftest import create_message, get_webhook_token, register_and_login
+from unittest.mock import patch
+
+from app.services.webhook import parse_message
+from tests.conftest import (
+    TestSessionLocal,
+    create_message,
+    get_webhook_token,
+    make_mock_provider,
+    register_and_login,
+)
 
 
 def test_webhook_creates_message(client):
@@ -58,15 +66,9 @@ def test_webhook_categorizes_with_llm(client, run_message_parse):
     token = get_webhook_token(client)
 
     create_message(client, token, sender="Bank", content="You paid $50")
-
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
-    mock_provider = type(
-        "MockProvider",
-        (),
-        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
-    )()
-    run_message_parse(message_id, mock_provider)
+    run_message_parse(message_id, make_mock_provider(category="finance"))
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"]["name"] == "finance"
@@ -78,15 +80,9 @@ def test_webhook_uncategorized_when_llm_returns_none(client, run_message_parse):
     token = get_webhook_token(client)
 
     create_message(client, token)
-
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
-    mock_provider = type(
-        "MockProvider",
-        (),
-        {"parse_message": lambda self, *a, **k: MessageParseResult()},
-    )()
-    run_message_parse(message_id, mock_provider)
+    run_message_parse(message_id, make_mock_provider(category=None))
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"] is None
@@ -107,17 +103,33 @@ def test_webhook_uncategorized_when_llm_fails(client, run_message_parse):
     token = get_webhook_token(client)
 
     create_message(client, token)
-
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
-    def _raise(*a, **k):
-        raise RuntimeError("LLM down")
-
-    mock_provider = type("MockProvider", (), {"parse_message": _raise})()
-    run_message_parse(message_id, mock_provider)
+    run_message_parse(
+        message_id,
+        make_mock_provider(categorize_raises=RuntimeError("LLM down")),
+    )
 
     messages = client.get("/api/messages").json()["messages"]
     assert messages[0]["category"] is None
+
+
+def test_parse_message_skips_llm_in_testsuite(client):
+    register_and_login(client)
+    client.post("/api/categories", json={"name": "transaction"})
+    token = get_webhook_token(client)
+    create_message(client, token, sender="BRAC", content="Balance: 500")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    with (
+        patch("app.services.webhook.get_llm_provider") as mock_get_provider,
+        patch("app.services.webhook.SessionLocal", TestSessionLocal),
+    ):
+        parse_message(message_id)
+
+    mock_get_provider.assert_not_called()
+    msg = client.get("/api/messages").json()["messages"][0]
+    assert msg["category"] is None
 
 
 def test_webhook_creates_message_with_unicode(client):

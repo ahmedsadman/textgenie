@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { Landmark, LayoutDashboard, LogOut, Menu, Tag, X } from "lucide-react";
+import {
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  Tag,
+  X,
+} from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api";
@@ -13,6 +21,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Categories", path: "/categories", icon: Tag },
   { label: "Finance", path: "/finance", icon: Landmark },
+  { label: "Settings", path: "/settings", icon: Settings },
 ];
 
 export default function AppLayout() {

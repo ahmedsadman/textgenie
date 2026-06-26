@@ -3,6 +3,7 @@ import axios from "axios";
 import type {
   Bank,
   Category,
+  MetadataBlacklist,
   PaginatedMessages,
   User,
   WebhookSettings,
@@ -75,6 +76,9 @@ export const api = {
   getMessages: (params: MessagesQuery) =>
     client.get<PaginatedMessages>("/messages", { params }).then((r) => r.data),
 
+  getMessageSenders: () =>
+    client.get<string[]>("/messages/senders").then((r) => r.data),
+
   deleteMessage: (id: number) =>
     client.delete<void>(`/messages/${id}`).then((r) => r.data),
 
@@ -84,6 +88,16 @@ export const api = {
   regenerateWebhookToken: () =>
     client
       .post<WebhookSettings>("/settings/webhook/regenerate", {})
+      .then((r) => r.data),
+
+  getMetadataBlacklist: () =>
+    client
+      .get<MetadataBlacklist>("/settings/metadata-blacklist")
+      .then((r) => r.data),
+
+  updateMetadataBlacklist: (senders: string[]) =>
+    client
+      .put<MetadataBlacklist>("/settings/metadata-blacklist", { senders })
       .then((r) => r.data),
 
   getBanks: () => client.get<Bank[]>("/banks").then((r) => r.data),

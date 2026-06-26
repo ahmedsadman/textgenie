@@ -9,7 +9,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.config import GEMINI_API_KEY
-from app.services.llm.base import LLMProvider, MessageParseResult, ParsePrompt
+from app.services.llm.base import LLMProvider, MetadataResult, ParsePrompt
 
 logger = logging.getLogger(__name__)
 
@@ -50,27 +50,15 @@ def _track_model_usage(model: str) -> None:
         )
 
 
-def _match_category(raw: str | None, categories: list[str]) -> str | None:
+def _match_name(raw: str | None, candidates: list[str]) -> str | None:
     if not raw:
         return None
     name = raw.strip().lower()
     if not name or name == "uncategorized":
         return None
-    for c in categories:
+    for c in candidates:
         if c.lower() == name:
             return c
-    return None
-
-
-def _match_bank(raw: str | None, banks: list[str]) -> str | None:
-    if not raw:
-        return None
-    name = raw.strip().lower()
-    if not name:
-        return None
-    for b in banks:
-        if b.lower() == name:
-            return b
     return None
 
 
@@ -88,24 +76,23 @@ class GeminiProvider(LLMProvider):
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
-    def parse_message(
-        self,
-        message_content: str,
-        sender: str,
-        categories: list[str],
-        banks: list[str] | None = None,
-    ) -> MessageParseResult:
-        banks = banks or []
-        if not categories and not banks:
-            logger.warning("No categories or banks provided — skipping message parsing")
-            return MessageParseResult()
-
-        prompt = self.build_message_parse_prompt(
-            message_content, sender, categories, banks
-        )
-
+    def categorize(
+        self, content: str, sender: str, categories: list[str]
+    ) -> str | None:
+        if not categories:
+            return None
+        prompt = self.build_categorize_prompt(content, sender, categories)
         response_text = self._generate_with_fallback(prompt)
-        return self._parse_response(response_text, categories, banks)
+        return self._parse_categorize_response(response_text, categories)
+
+    def extract_metadata(
+        self, content: str, sender: str, banks: list[str]
+    ) -> MetadataResult:
+        if not banks:
+            return MetadataResult()
+        prompt = self.build_metadata_prompt(content, sender, banks)
+        response_text = self._generate_with_fallback(prompt)
+        return self._parse_metadata_response(response_text, banks)
 
     def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
         last_exc: BaseException | None = None
@@ -160,23 +147,27 @@ class GeminiProvider(LLMProvider):
         assert last_exc is not None
         raise last_exc
 
-    def _parse_response(
-        self,
-        response_text: str | None,
-        categories: list[str],
-        banks: list[str],
-    ) -> MessageParseResult:
+    def _parse_categorize_response(
+        self, response_text: str | None, categories: list[str]
+    ) -> str | None:
         if not response_text:
-            logger.error("LLM returned empty response")
-            return MessageParseResult()
-
+            logger.error("LLM returned empty categorize response")
+            return None
         data = json.loads(response_text)
-        category = _match_category(data.get("category"), categories)
-        bank = _match_bank(data.get("bank"), banks)
-        balance = _parse_balance(data.get("balance")) if bank else None
-
+        category = _match_name(data.get("category"), categories)
         if category:
             logger.info("LLM categorized message as '%s'", category)
+        return category
+
+    def _parse_metadata_response(
+        self, response_text: str | None, banks: list[str]
+    ) -> MetadataResult:
+        if not response_text:
+            logger.error("LLM returned empty metadata response")
+            return MetadataResult()
+        data = json.loads(response_text)
+        bank = _match_name(data.get("bank"), banks)
+        balance = _parse_balance(data.get("balance")) if bank else None
         if bank:
             logger.info("LLM identified bank '%s' with balance %s", bank, balance)
-        return MessageParseResult(category=category, bank=bank, balance=balance)
+        return MetadataResult(bank=bank, balance=balance)

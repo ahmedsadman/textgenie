@@ -33,6 +33,10 @@ export interface WebhookSettings {
   webhook_token: string;
 }
 
+export interface MetadataBlacklist {
+  senders: string[];
+}
+
 export interface Bank {
   id: number;
   name: string;

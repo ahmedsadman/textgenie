@@ -6,11 +6,6 @@ import { server } from "@/mocks/server";
 import DashboardPage from "@/pages/DashboardPage";
 import { mockUser, renderWithOutletContext } from "@/test-utils";
 
-const mockWebhook = {
-  webhook_url: "http://localhost:8001/api/webhook/test-token-123",
-  webhook_token: "test-token-123",
-};
-
 const mockCategories = [
   { id: 1, name: "finance", created_at: "2026-01-01T00:00:00Z" },
   { id: 2, name: "personal", created_at: "2026-01-01T00:00:00Z" },
@@ -49,7 +44,6 @@ function renderDashboard() {
 describe("DashboardPage", () => {
   beforeEach(() => {
     server.use(
-      http.get("/api/settings/webhook", () => HttpResponse.json(mockWebhook)),
       http.get("/api/categories", () => HttpResponse.json(mockCategories)),
       http.get("/api/messages", () => HttpResponse.json(mockMessages)),
     );
@@ -59,38 +53,6 @@ describe("DashboardPage", () => {
     renderDashboard();
     await screen.findByText("Dashboard");
     expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
-  });
-
-  it("displays webhook URL", async () => {
-    renderDashboard();
-    await screen.findByDisplayValue(mockWebhook.webhook_url);
-  });
-
-  it("copies webhook URL to clipboard", async () => {
-    const user = userEvent.setup();
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: { writeText },
-      writable: true,
-      configurable: true,
-    });
-
-    renderDashboard();
-    await screen.findByDisplayValue(mockWebhook.webhook_url);
-
-    await user.click(screen.getByLabelText("Copy webhook URL"));
-    expect(writeText).toHaveBeenCalledWith(mockWebhook.webhook_url);
-  });
-
-  it("shows setup instructions when expanded", async () => {
-    const user = userEvent.setup();
-    renderDashboard();
-    await screen.findByText("Setup Instructions");
-
-    await user.click(screen.getByText("Setup Instructions"));
-    expect(
-      screen.getByText(/Content-Type: application\/json/),
-    ).toBeInTheDocument();
   });
 
   it("renders message list", async () => {
@@ -143,53 +105,6 @@ describe("DashboardPage", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("Bank")).not.toBeInTheDocument();
-    });
-  });
-
-  it("regenerates webhook token, shows loader, and closes dialog", async () => {
-    const newWebhook = {
-      webhook_url: "http://localhost:8001/api/webhook/new-token-456",
-      webhook_token: "new-token-456",
-    };
-    let resolveRegenerate: ((value: typeof newWebhook) => void) | undefined;
-    server.use(
-      http.post(
-        "/api/settings/webhook/regenerate",
-        () =>
-          new Promise((resolve) => {
-            resolveRegenerate = (value) => resolve(HttpResponse.json(value));
-          }),
-      ),
-    );
-
-    const user = userEvent.setup();
-    renderDashboard();
-
-    await screen.findByDisplayValue(mockWebhook.webhook_url);
-
-    await user.click(screen.getByLabelText("Regenerate token"));
-
-    await screen.findByText("Regenerate token", {
-      selector: "[data-slot='alert-dialog-title']",
-    });
-
-    await user.click(screen.getByRole("button", { name: "Regenerate" }));
-
-    const regeneratingButton = await screen.findByRole("button", {
-      name: /regenerating/i,
-    });
-    expect(regeneratingButton).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
-
-    resolveRegenerate!(newWebhook);
-
-    await screen.findByDisplayValue(newWebhook.webhook_url);
-    await waitFor(() => {
-      expect(
-        screen.queryByText("Regenerate token", {
-          selector: "[data-slot='alert-dialog-title']",
-        }),
-      ).not.toBeInTheDocument();
     });
   });
 
@@ -292,5 +207,12 @@ describe("DashboardPage", () => {
     renderDashboard();
     const trigger = await screen.findByLabelText("Filter by category");
     expect(trigger.textContent).toContain("All");
+  });
+
+  it("no longer shows webhook UI (moved to Settings)", async () => {
+    renderDashboard();
+    await screen.findByText("Dashboard");
+    expect(screen.queryByLabelText("Copy webhook URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Regenerate token")).not.toBeInTheDocument();
   });
 });
