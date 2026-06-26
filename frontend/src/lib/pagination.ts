@@ -6,17 +6,14 @@ export function generatePaginationItems(
   currentPage: number,
   totalPages: number,
 ): PaginationItem[] {
-  if (totalPages <= 7) {
+  if (totalPages <= 4) {
     return Array.from({ length: totalPages }, (_, i) => ({
       type: "page" as const,
       page: i + 1,
     }));
   }
 
-  const pages = new Set([1, totalPages]);
-  for (let p = currentPage - 1; p <= currentPage + 1; p++) {
-    if (p >= 1 && p <= totalPages) pages.add(p);
-  }
+  const pages = new Set([1, currentPage, totalPages]);
 
   const sorted = [...pages].sort((a, b) => a - b);
   const items: PaginationItem[] = [];
