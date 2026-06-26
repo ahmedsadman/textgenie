@@ -1,7 +1,7 @@
-from app.services.llm.base import MessageParseResult
 from tests.conftest import (
     create_message,
     get_webhook_token,
+    make_mock_provider,
     register_and_login,
 )
 
@@ -50,12 +50,7 @@ def test_list_messages_filter_by_category(client, run_message_parse):
     messages = client.get("/api/messages").json()["messages"]
     bank_msg_id = next(m["id"] for m in messages if m["sender"] == "Bank")
 
-    mock_provider = type(
-        "MockProvider",
-        (),
-        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
-    )()
-    run_message_parse(bank_msg_id, mock_provider)
+    run_message_parse(bank_msg_id, make_mock_provider(category="finance"))
 
     cats = client.get("/api/categories").json()
     finance_id = next(c["id"] for c in cats if c["name"] == "finance")
@@ -86,12 +81,7 @@ def test_list_messages_filter_multiple_categories(client, run_message_parse):
     messages = client.get("/api/messages").json()["messages"]
     bank_msg_id = next(m["id"] for m in messages if m["sender"] == "Bank")
 
-    mock_provider = type(
-        "MockProvider",
-        (),
-        {"parse_message": lambda self, *a, **k: MessageParseResult(category="finance")},
-    )()
-    run_message_parse(bank_msg_id, mock_provider)
+    run_message_parse(bank_msg_id, make_mock_provider(category="finance"))
 
     cats = client.get("/api/categories").json()
     finance_id = next(c["id"] for c in cats if c["name"] == "finance")
@@ -197,4 +187,54 @@ def test_list_messages_unauthenticated(client):
 
 def test_delete_message_unauthenticated(client):
     response = client.delete("/api/messages/1")
+    assert response.status_code == 401
+
+
+# --- Senders endpoint ---
+
+
+def test_senders_empty_when_no_messages(client):
+    register_and_login(client)
+    response = client.get("/api/messages/senders")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_senders_dedups_and_orders_by_recency(client):
+    register_and_login(client)
+    token = get_webhook_token(client)
+    create_message(
+        client, token, sender="BRAC", content="m1", timestamp=1_000_000_000_000
+    )
+    create_message(
+        client, token, sender="EBL", content="m2", timestamp=2_000_000_000_000
+    )
+    create_message(
+        client, token, sender="BRAC", content="m3", timestamp=3_000_000_000_000
+    )
+    create_message(
+        client, token, sender="Telco", content="m4", timestamp=500_000_000_000
+    )
+
+    response = client.get("/api/messages/senders")
+    assert response.status_code == 200
+    # BRAC's most recent is 3T, EBL is 2T, Telco is 0.5T
+    assert response.json() == ["BRAC", "EBL", "Telco"]
+
+
+def test_senders_cross_user_isolation(client):
+    register_and_login(client, email="user1@example.com")
+    token1 = get_webhook_token(client)
+    create_message(client, token1, sender="UserOneSender", content="x")
+
+    register_and_login(client, email="user2@example.com")
+    token2 = get_webhook_token(client)
+    create_message(client, token2, sender="UserTwoSender", content="y")
+
+    response = client.get("/api/messages/senders")
+    assert response.json() == ["UserTwoSender"]
+
+
+def test_senders_unauthenticated(client):
+    response = client.get("/api/messages/senders")
     assert response.status_code == 401

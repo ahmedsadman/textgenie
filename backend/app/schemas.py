@@ -75,6 +75,14 @@ class WebhookSettingsResponse(BaseModel):
     webhook_token: str
 
 
+class MetadataBlacklistResponse(BaseModel):
+    senders: list[str]
+
+
+class MetadataBlacklistUpdateRequest(BaseModel):
+    senders: list[str]
+
+
 class SmsMessageResponse(BaseModel):
     id: int
     sender: str

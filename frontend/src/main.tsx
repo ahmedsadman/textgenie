@@ -10,6 +10,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import FinancePage from "@/pages/FinancePage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 import "./index.css";
 
@@ -37,6 +38,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<DashboardPage />} />
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="finance" element={<FinancePage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
       <Toaster />

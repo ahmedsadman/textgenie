@@ -59,3 +59,34 @@ const CATEGORY_COLORS = [
 export function getCategoryColor(id: number) {
   return CATEGORY_COLORS[id % CATEGORY_COLORS.length];
 }
+
+function ordinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return "th";
+  switch (day % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+export function formatMessageDateTime(iso: string): string {
+  const d = new Date(iso);
+  const day = d.getDate();
+  const month = d.toLocaleString("en-US", { month: "long" });
+  const year = d.getFullYear();
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const datePart =
+    year === new Date().getFullYear()
+      ? `${day}${ordinalSuffix(day)} ${month}`
+      : `${day}${ordinalSuffix(day)} ${month}, ${year}`;
+  return `${datePart} at ${time}`;
+}

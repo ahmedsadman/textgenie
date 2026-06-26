@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas import MessageResponse, PaginatedMessagesResponse
 from app.services.auth import get_current_user
-from app.services.messages import delete_message, list_messages
+from app.services.messages import delete_message, list_messages, list_senders
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
 
@@ -26,6 +26,14 @@ def get_messages(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/senders", response_model=list[str])
+def get_senders(
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    return list_senders(db, user)
 
 
 @router.delete("/{message_id}", response_model=MessageResponse)

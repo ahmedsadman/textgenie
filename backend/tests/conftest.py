@@ -13,7 +13,8 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models import Category
-from app.services.categories import DEFAULT_CATEGORIES
+from app.services.categories import DefaultCategory
+from app.services.llm.base import MetadataResult
 from app.services.webhook import parse_message
 
 engine = create_engine(
@@ -54,8 +55,8 @@ def _create_schema():
 @pytest.fixture(autouse=True)
 def setup_db():
     db = TestSessionLocal()
-    for name in DEFAULT_CATEGORIES:
-        db.add(Category(name=name, user_id=None))
+    for default in DefaultCategory:
+        db.add(Category(name=default.value, user_id=None))
     db.commit()
     db.close()
     yield
@@ -134,3 +135,31 @@ def run_message_parse():
             parse_message(message_id)
 
     return _run
+
+
+def make_mock_provider(
+    category=None, metadata=None, categorize_raises=None, extract_raises=None
+):
+    """Build a stub LLM provider for parse_message orchestration tests.
+
+    - category: value returned by provider.categorize()
+    - metadata: MetadataResult returned by provider.extract_metadata()
+    - categorize_raises / extract_raises: Exception instances to raise instead
+    """
+    md = metadata if metadata is not None else MetadataResult()
+
+    def _categorize(self, *a, **k):
+        if categorize_raises is not None:
+            raise categorize_raises
+        return category
+
+    def _extract(self, *a, **k):
+        if extract_raises is not None:
+            raise extract_raises
+        return md
+
+    return type(
+        "MockProvider",
+        (),
+        {"categorize": _categorize, "extract_metadata": _extract},
+    )()

@@ -1,5 +1,7 @@
-from app.services.categories import DEFAULT_CATEGORIES
+from app.services.categories import DefaultCategory
 from tests.conftest import register_and_login
+
+DEFAULT_CATEGORY_NAMES = {c.value for c in DefaultCategory}
 
 
 def create_category(client, name="groceries"):
@@ -64,7 +66,7 @@ def test_list_categories(client):
     assert response.status_code == 200
     data = response.json()
     names = [c["name"] for c in data]
-    for default in DEFAULT_CATEGORIES:
+    for default in DEFAULT_CATEGORY_NAMES:
         assert default in names
     assert "travel" in names
     assert "groceries" in names
@@ -82,7 +84,7 @@ def test_list_categories_only_own(client):
     names = [c["name"] for c in response.json()]
     assert "user2-cat" in names
     assert "user1-cat" not in names
-    for default in DEFAULT_CATEGORIES:
+    for default in DEFAULT_CATEGORY_NAMES:
         assert default in names
 
 
@@ -185,7 +187,7 @@ def test_default_categories_in_listing(client):
     response = client.get("/api/categories")
     data = response.json()
     defaults = [c for c in data if c["is_default"]]
-    assert {c["name"] for c in defaults} == set(DEFAULT_CATEGORIES)
+    assert {c["name"] for c in defaults} == DEFAULT_CATEGORY_NAMES
 
 
 def test_cannot_update_default_category(client):
