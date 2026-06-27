@@ -33,7 +33,10 @@ function endOfDay(d: Date): Date {
 }
 
 export function toDateOnlyString(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function parseDateOnly(s: string): Date {
@@ -65,9 +68,10 @@ export function resolveDateRange(value: DateRangeSelection): {
       return rangeFromDays(now, 365);
     case "custom": {
       if (!value.customRange) return { from: null, to: null };
-      const from = startOfDay(parseDateOnly(value.customRange.from));
-      const to = endOfDay(parseDateOnly(value.customRange.to));
-      return { from: from.toISOString(), to: to.toISOString() };
+      return {
+        from: `${value.customRange.from}T00:00:00.000Z`,
+        to: `${value.customRange.to}T23:59:59.999Z`,
+      };
     }
   }
 }
