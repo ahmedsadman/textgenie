@@ -2,7 +2,10 @@ FROM python:3.12.13-slim AS dev
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 WORKDIR /app
 
@@ -25,12 +28,13 @@ RUN groupadd -g 1001 appgroup && \
 
 WORKDIR /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" PYTHONPATH=/app
 
-COPY --from=dev --chown=appuser:appgroup /app/.venv /app/.venv
+COPY --from=dev --chown=appuser:appgroup /opt/venv /opt/venv
 COPY --from=dev --chown=appuser:appgroup /app/app /app/app
 COPY --from=dev --chown=appuser:appgroup /app/alembic /app/alembic
 COPY --from=dev --chown=appuser:appgroup /app/alembic.ini /app/alembic.ini
+COPY --from=dev --chown=appuser:appgroup /app/scripts /app/scripts
 
 USER appuser
 
