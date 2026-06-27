@@ -8,7 +8,6 @@ import {
   LogOut,
   Menu,
   Settings,
-  Tag,
   X,
 } from "lucide-react";
 
@@ -19,7 +18,6 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { label: "Categories", path: "/categories", icon: Tag },
   { label: "Finance", path: "/finance", icon: Landmark },
   { label: "Settings", path: "/settings", icon: Settings },
 ];

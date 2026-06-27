@@ -2,9 +2,9 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
+import CategoriesSection from "@/components/CategoriesSection";
 import { server } from "@/mocks/server";
-import CategoriesPage from "@/pages/CategoriesPage";
-import { mockUser, renderWithOutletContext } from "@/test-utils";
+import { renderWithRouter } from "@/test-utils";
 
 const mockCategories = [
   {
@@ -27,11 +27,11 @@ const mockCategories = [
   },
 ];
 
-function renderPage() {
-  return renderWithOutletContext(<CategoriesPage />, { user: mockUser });
+function renderSection() {
+  return renderWithRouter(<CategoriesSection />);
 }
 
-describe("CategoriesPage", () => {
+describe("CategoriesSection", () => {
   beforeEach(() => {
     server.use(
       http.get("/api/categories", () => HttpResponse.json(mockCategories)),
@@ -39,7 +39,7 @@ describe("CategoriesPage", () => {
   });
 
   it("renders category list", async () => {
-    renderPage();
+    renderSection();
 
     await waitFor(() => {
       expect(screen.getByText("bills")).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("CategoriesPage", () => {
   it("shows empty state when no categories", async () => {
     server.use(http.get("/api/categories", () => HttpResponse.json([])));
 
-    renderPage();
+    renderSection();
 
     await waitFor(() => {
       expect(screen.getByText(/no categories yet/i)).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderPage();
+    renderSection();
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -100,7 +100,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderPage();
+    renderSection();
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -126,7 +126,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderPage();
+    renderSection();
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -147,7 +147,7 @@ describe("CategoriesPage", () => {
   });
 
   it("cancels editing", async () => {
-    renderPage();
+    renderSection();
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -171,7 +171,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderPage();
+    renderSection();
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -197,7 +197,7 @@ describe("CategoriesPage", () => {
   });
 
   it("does not show edit/delete buttons for default categories", async () => {
-    renderPage();
+    renderSection();
 
     await waitFor(() => {
       expect(screen.getByText("transaction")).toBeInTheDocument();

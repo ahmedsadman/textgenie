@@ -5,7 +5,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import GuestRoute from "@/components/GuestRoute";
 import { Toaster } from "@/components/ui/sonner";
-import CategoriesPage from "@/pages/CategoriesPage";
 import DashboardPage from "@/pages/DashboardPage";
 import FinancePage from "@/pages/FinancePage";
 import LoginPage from "@/pages/LoginPage";
@@ -36,7 +35,6 @@ createRoot(document.getElementById("root")!).render(
         />
         <Route path="/" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="categories" element={<CategoriesPage />} />
           <Route path="finance" element={<FinancePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

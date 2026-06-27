@@ -25,6 +25,7 @@ function mockSettingsHandlers(
     http.get("/api/messages/senders", () =>
       HttpResponse.json(opts.senders ?? []),
     ),
+    http.get("/api/categories", () => HttpResponse.json([])),
   );
 }
 
