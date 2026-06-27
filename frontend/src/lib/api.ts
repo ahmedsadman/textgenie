@@ -5,6 +5,7 @@ import type {
   Category,
   MetadataBlacklist,
   PaginatedMessages,
+  PaginatedTransactions,
   User,
   WebhookSettings,
 } from "@/lib/types";
@@ -46,6 +47,13 @@ export interface MessagesQuery {
   page_size: number;
   category_ids?: number[];
   search?: string;
+}
+
+export interface TransactionsQuery {
+  page: number;
+  page_size: number;
+  from_date?: string;
+  to_date?: string;
 }
 
 export const api = {
@@ -110,4 +118,9 @@ export const api = {
 
   deleteBank: (id: number) =>
     client.delete<void>(`/banks/${id}`).then((r) => r.data),
+
+  getTransactions: (params: TransactionsQuery) =>
+    client
+      .get<PaginatedTransactions>("/transactions", { params })
+      .then((r) => r.data),
 };

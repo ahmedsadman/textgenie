@@ -44,3 +44,29 @@ export interface Bank {
   last_balance_at: string | null;
   created_at: string;
 }
+
+export type TransactionType = "income" | "expense";
+
+export interface Transaction {
+  id: number;
+  message_id: number;
+  bank_id: number | null;
+  bank_name: string | null;
+  sender: string;
+  amount: string;
+  type: TransactionType;
+  date: string;
+}
+
+export interface TransactionTotals {
+  income: string;
+  expense: string;
+}
+
+export interface PaginatedTransactions {
+  transactions: Transaction[];
+  total: number;
+  page: number;
+  page_size: number;
+  totals: TransactionTotals;
+}

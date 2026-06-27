@@ -27,9 +27,21 @@ function renderPage() {
   return renderWithOutletContext(<FinancePage />, { user: mockUser });
 }
 
+const emptyTransactions = {
+  transactions: [],
+  total: 0,
+  page: 1,
+  page_size: 10,
+  totals: { income: "0", expense: "0" },
+};
+
 describe("FinancePage", () => {
   beforeEach(() => {
-    server.use(http.get("/api/banks", () => HttpResponse.json(mockBanks)));
+    localStorage.clear();
+    server.use(
+      http.get("/api/banks", () => HttpResponse.json(mockBanks)),
+      http.get("/api/transactions", () => HttpResponse.json(emptyTransactions)),
+    );
   });
 
   it("renders bank list with total balance", async () => {

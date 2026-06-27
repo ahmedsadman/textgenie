@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import TransactionsSection from "@/components/TransactionsSection";
 import { ApiError, api, type BankUpdate } from "@/lib/api";
 import type { Bank } from "@/lib/types";
 
@@ -309,6 +310,8 @@ export default function FinancePage() {
           )}
         </CardContent>
       </Card>
+
+      <TransactionsSection />
     </div>
   );
 }
