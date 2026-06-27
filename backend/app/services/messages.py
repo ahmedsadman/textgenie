@@ -77,7 +77,7 @@ def list_senders(db: DBSession, user: User, limit: int = SENDERS_LIMIT) -> list[
     return [row[0] for row in rows]
 
 
-def delete_message(db: DBSession, user: User, message_id: int) -> None:
+def get_message(db: DBSession, user: User, message_id: int) -> Message:
     message = (
         db.query(Message)
         .filter(Message.id == message_id, Message.user_id == user.id)
@@ -86,7 +86,11 @@ def delete_message(db: DBSession, user: User, message_id: int) -> None:
     if not message:
         logger.error("Message not found: id=%d, user_id=%d", message_id, user.id)
         raise HTTPException(status_code=404, detail="Message not found")
+    return message
 
+
+def delete_message(db: DBSession, user: User, message_id: int) -> None:
+    message = get_message(db, user, message_id)
     db.delete(message)
     db.commit()
     logger.info("Message deleted: id=%d", message_id)

@@ -3,6 +3,7 @@ import axios from "axios";
 import type {
   Bank,
   Category,
+  Message,
   MetadataBlacklist,
   PaginatedMessages,
   PaginatedTransactions,
@@ -83,6 +84,9 @@ export const api = {
 
   getMessages: (params: MessagesQuery) =>
     client.get<PaginatedMessages>("/messages", { params }).then((r) => r.data),
+
+  getMessage: (id: number) =>
+    client.get<Message>(`/messages/${id}`).then((r) => r.data),
 
   getMessageSenders: () =>
     client.get<string[]>("/messages/senders").then((r) => r.data),
