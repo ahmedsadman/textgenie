@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
 
@@ -118,3 +118,30 @@ class BankResponse(BaseModel):
     created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
+
+
+TransactionType = Literal["income", "expense"]
+
+
+class TransactionResponse(BaseModel):
+    id: int
+    message_id: int
+    bank_id: int | None
+    bank_name: str | None
+    sender: str
+    amount: Decimal
+    type: TransactionType
+    date: UtcDatetime
+
+
+class TransactionTotals(BaseModel):
+    income: Decimal
+    expense: Decimal
+
+
+class PaginatedTransactionsResponse(BaseModel):
+    transactions: list[TransactionResponse]
+    total: int
+    page: int
+    page_size: int
+    totals: TransactionTotals
