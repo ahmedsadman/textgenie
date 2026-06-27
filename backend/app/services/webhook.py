@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.config import GEMINI_API_KEY
 from app.database import SessionLocal
-from app.models import Bank, Category, Message, User
+from app.models import Bank, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
 from app.services import metadata_blacklist
 from app.services.categories import DefaultCategory, _categories_filter
@@ -90,72 +90,10 @@ def parse_message(message_id: int) -> None:
             logger.error("Background parsing: user %d not found", message.user_id)
             return
 
-        categories = (
-            db.query(Category).filter(_categories_filter(message.user_id)).all()
-        )
+        category = _categorize_and_assign(db, message)
 
-        # Step 1: categorize
-        category_name = _categorize(
-            message.content, message.sender, [c.name for c in categories]
-        )
-        category = None
-        if category_name:
-            category = next((c for c in categories if c.name == category_name), None)
-            if category:
-                message.category_id = category.id
-                logger.info(
-                    "Message id=%d categorized as '%s'", message_id, category.name
-                )
-
-        # Step 2: gate metadata extraction
-        if category is None or category.name != DefaultCategory.TRANSACTION.value:
-            logger.info(
-                "Message id=%d category is not '%s'; skipping metadata extraction",
-                message_id,
-                DefaultCategory.TRANSACTION.value,
-            )
-            db.commit()
-            return
-
-        if metadata_blacklist.contains(message.sender, user.metadata_blacklist):
-            logger.info(
-                "Message id=%d sender '%s' is in metadata blacklist; "
-                "skipping metadata extraction",
-                message_id,
-                message.sender,
-            )
-            db.commit()
-            return
-
-        banks = db.query(Bank).filter(Bank.user_id == message.user_id).all()
-        if not banks:
-            logger.info(
-                "Message id=%d user has no banks; skipping metadata extraction",
-                message_id,
-            )
-            db.commit()
-            return
-
-        metadata = _extract_metadata(
-            message.content, message.sender, [b.name for b in banks]
-        )
-
-        if metadata.bank and metadata.balance is not None:
-            bank = next(
-                (b for b in banks if b.name.lower() == metadata.bank.lower()), None
-            )
-            if bank and (
-                bank.last_balance_at is None
-                or message.received_at > bank.last_balance_at
-            ):
-                bank.last_balance = metadata.balance
-                bank.last_balance_at = message.received_at
-                logger.info(
-                    "Bank id=%d balance updated to %s from message id=%d",
-                    bank.id,
-                    metadata.balance,
-                    message_id,
-                )
+        if _should_extract_metadata(message, user, category):
+            _extract_and_apply_metadata(db, message, user)
 
         db.commit()
     except Exception:
@@ -166,3 +104,119 @@ def parse_message(message_id: int) -> None:
         )
     finally:
         db.close()
+
+
+def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
+    """Categorize the message via LLM and assign category_id on the model."""
+    categories = db.query(Category).filter(_categories_filter(message.user_id)).all()
+    category_name = _categorize(
+        message.content, message.sender, [c.name for c in categories]
+    )
+    if not category_name:
+        return None
+    category = next((c for c in categories if c.name == category_name), None)
+    if category:
+        message.category_id = category.id
+        logger.info("Message id=%d categorized as '%s'", message.id, category.name)
+    return category
+
+
+def _should_extract_metadata(
+    message: Message, user: User, category: Category | None
+) -> bool:
+    if category is None or category.name != DefaultCategory.TRANSACTION.value:
+        logger.info(
+            "Message id=%d category is not '%s'; skipping metadata extraction",
+            message.id,
+            DefaultCategory.TRANSACTION.value,
+        )
+        return False
+
+    if metadata_blacklist.contains(message.sender, user.metadata_blacklist):
+        logger.info(
+            "Message id=%d sender '%s' is in metadata blacklist; "
+            "skipping metadata extraction",
+            message.id,
+            message.sender,
+        )
+        return False
+
+    return True
+
+
+def _extract_and_apply_metadata(db: DBSession, message: Message, user: User) -> None:
+    banks = db.query(Bank).filter(Bank.user_id == user.id).all()
+    if not banks:
+        logger.info(
+            "Message id=%d user has no banks; skipping metadata extraction",
+            message.id,
+        )
+        return
+
+    metadata = _extract_metadata(
+        message.content, message.sender, [b.name for b in banks]
+    )
+    bank = _match_bank(banks, metadata.bank)
+    _update_bank_balance(bank, metadata, message)
+    _record_transaction(db, user, bank, metadata, message)
+
+
+def _match_bank(banks: list[Bank], name: str | None) -> Bank | None:
+    if not name:
+        return None
+    return next((b for b in banks if b.name.lower() == name.lower()), None)
+
+
+def _update_bank_balance(
+    bank: Bank | None, metadata: MetadataResult, message: Message
+) -> None:
+    if not bank or metadata.balance is None:
+        return
+    if bank.last_balance_at is not None and message.received_at <= bank.last_balance_at:
+        return
+    bank.last_balance = metadata.balance
+    bank.last_balance_at = message.received_at
+    logger.info(
+        "Bank id=%d balance updated to %s from message id=%d",
+        bank.id,
+        metadata.balance,
+        message.id,
+    )
+
+
+def _record_transaction(
+    db: DBSession,
+    user: User,
+    bank: Bank | None,
+    metadata: MetadataResult,
+    message: Message,
+) -> None:
+    if not metadata.amount or not metadata.transaction_type:
+        return
+
+    existing = (
+        db.query(Transaction).filter(Transaction.message_id == message.id).first()
+    )
+    if existing is not None:
+        logger.info(
+            "Transaction already exists for message id=%d; skipping insert",
+            message.id,
+        )
+        return
+
+    db.add(
+        Transaction(
+            user_id=user.id,
+            message_id=message.id,
+            bank_id=bank.id if bank else None,
+            amount=metadata.amount,
+            type=metadata.transaction_type,
+            date=message.received_at,
+        )
+    )
+    logger.info(
+        "Transaction recorded for message id=%d: %s %s",
+        message.id,
+        metadata.transaction_type,
+        metadata.amount,
+    )
