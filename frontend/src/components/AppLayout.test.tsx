@@ -43,9 +43,6 @@ describe("AppLayout", () => {
     expect(
       screen.getByRole("link", { name: /dashboard/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /categories/i }),
-    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /logout/i })).toBeInTheDocument();
   });
 

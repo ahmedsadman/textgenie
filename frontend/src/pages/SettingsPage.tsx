@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { Check, Copy, Loader2, RefreshCw } from "lucide-react";
 
+import CategoriesSection from "@/components/CategoriesSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -208,6 +209,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <CategoriesSection />
 
       <Card>
         <CardHeader>
