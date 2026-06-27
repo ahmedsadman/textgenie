@@ -15,7 +15,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError, api, type BankUpdate } from "@/lib/api";
 import type { Bank } from "@/lib/types";
@@ -191,11 +197,11 @@ export default function FinancePage() {
               SMS.
             </p>
           ) : (
-            <ul className="divide-y">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {banks.map((bank) => (
-                <li key={bank.id} className="flex flex-col gap-2 py-3">
+                <Card key={bank.id} className="gap-3 py-4">
                   {editingId === bank.id ? (
-                    <div className="flex flex-col gap-2">
+                    <CardContent className="flex flex-col gap-2">
                       <Input
                         ref={editInputRef}
                         value={editingName}
@@ -231,70 +237,75 @@ export default function FinancePage() {
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
+                    </CardContent>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{bank.name}</p>
+                    <>
+                      <CardHeader>
+                        <CardTitle className="truncate">{bank.name}</CardTitle>
+                        <CardAction className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startEditing(bank)}
+                            aria-label="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Delete"
+                                />
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete bank</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete &quot;
+                                  {bank.name}&quot;? This action cannot be
+                                  undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  variant="destructive"
+                                  onClick={() => handleDelete(bank.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </CardAction>
+                      </CardHeader>
+                      <CardContent>
+                        <p
+                          className={`text-2xl tabular-nums ${
+                            bank.last_balance === null
+                              ? "text-base text-muted-foreground italic"
+                              : "font-semibold"
+                          }`}
+                        >
+                          {formatBalance(bank.last_balance)}
+                        </p>
                         {bank.last_balance_at && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             Updated {formatRelativeTime(bank.last_balance_at)}
                           </p>
                         )}
-                      </div>
-                      <p
-                        className={`text-sm tabular-nums ${
-                          bank.last_balance === null
-                            ? "text-muted-foreground italic"
-                            : "font-medium"
-                        }`}
-                      >
-                        {formatBalance(bank.last_balance)}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => startEditing(bank)}
-                        aria-label="Edit"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Delete"
-                            />
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete bank</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete &quot;{bank.name}
-                              &quot;? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => handleDelete(bank.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                      </CardContent>
+                    </>
                   )}
-                </li>
+                </Card>
               ))}
-            </ul>
+            </div>
           )}
         </CardContent>
       </Card>
