@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { CalendarIcon, ChevronDown } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -19,47 +20,67 @@ interface DateRangePickerProps {
   onChange: (next: DateRangeSelection) => void;
 }
 
+function rangeFromSelection(value: DateRangeSelection): DateRange | undefined {
+  if (!value.customRange) return undefined;
+  return {
+    from: parseDateOnly(value.customRange.from),
+    to: parseDateOnly(value.customRange.to),
+  };
+}
+
 export default function DateRangePicker({
   value,
   onChange,
 }: DateRangePickerProps) {
-  const [draftFrom, setDraftFrom] = useState<Date | undefined>(
-    value.customRange ? parseDateOnly(value.customRange.from) : undefined,
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(
+    rangeFromSelection(value),
   );
-  const [draftTo, setDraftTo] = useState<Date | undefined>(
-    value.customRange ? parseDateOnly(value.customRange.to) : undefined,
-  );
-  const [customMode, setCustomMode] = useState(value.presetKey === "custom");
   const [open, setOpen] = useState(false);
+  const [clicksSinceOpen, setClicksSinceOpen] = useState(0);
+
+  const initialPresets = DATE_RANGE_PRESETS.filter((p) => p.key !== "all_time");
+  const allTimePreset = DATE_RANGE_PRESETS.find((p) => p.key === "all_time");
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
-      setCustomMode(value.presetKey === "custom");
-      setDraftFrom(
-        value.customRange ? parseDateOnly(value.customRange.from) : undefined,
-      );
-      setDraftTo(
-        value.customRange ? parseDateOnly(value.customRange.to) : undefined,
-      );
+      setDraftRange(rangeFromSelection(value));
+      setClicksSinceOpen(0);
     }
   }
 
   function selectPreset(key: DateRangePresetKey) {
     onChange({ presetKey: key, customRange: null });
+    setDraftRange(undefined);
     setOpen(false);
   }
 
-  function applyCustom() {
-    if (!draftFrom || !draftTo) return;
-    const [from, to] =
-      draftFrom <= draftTo ? [draftFrom, draftTo] : [draftTo, draftFrom];
+  function handleRangeSelect(_range: DateRange | undefined, triggerDate: Date) {
+    if (clicksSinceOpen === 0) {
+      setDraftRange({ from: triggerDate, to: triggerDate });
+      setClicksSinceOpen(1);
+      return;
+    }
+
+    const from = draftRange?.from;
+    if (!from || triggerDate <= from) {
+      setDraftRange({ from: triggerDate, to: triggerDate });
+      setClicksSinceOpen(1);
+      return;
+    }
+
+    setDraftRange({ from, to: triggerDate });
     onChange({
       presetKey: "custom",
-      customRange: { from: toDateOnlyString(from), to: toDateOnlyString(to) },
+      customRange: {
+        from: toDateOnlyString(from),
+        to: toDateOnlyString(triggerDate),
+      },
     });
     setOpen(false);
   }
+
+  const defaultMonth = draftRange?.from ?? new Date();
 
   return (
     <Popover.Root open={open} onOpenChange={handleOpenChange}>
@@ -74,77 +95,48 @@ export default function DateRangePicker({
       />
       <Popover.Portal>
         <Popover.Positioner sideOffset={4} align="end">
-          <Popover.Popup className="z-50 rounded-lg border bg-popover p-2 text-popover-foreground ring-1 ring-foreground/10">
-            <div className="flex flex-col gap-1">
-              {DATE_RANGE_PRESETS.map((preset) => (
-                <button
-                  key={preset.key}
-                  type="button"
-                  onClick={() => selectPreset(preset.key)}
-                  className={cn(
-                    "rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
-                    value.presetKey === preset.key &&
-                      !customMode &&
-                      "bg-muted font-medium",
-                  )}
-                >
-                  {preset.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setCustomMode(true)}
-                className={cn(
-                  "rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
-                  customMode && "bg-muted font-medium",
+          <Popover.Popup className="z-50 rounded-lg border bg-popover p-3 text-popover-foreground ring-1 ring-foreground/10">
+            <div className="flex gap-3">
+              <div className="flex w-40 flex-col gap-0.5 border-r pr-3">
+                <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">
+                  Presets
+                </div>
+                {initialPresets.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => selectPreset(preset.key)}
+                    className={cn(
+                      "rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+                      value.presetKey === preset.key && "bg-muted font-medium",
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                {allTimePreset && (
+                  <button
+                    type="button"
+                    onClick={() => selectPreset(allTimePreset.key)}
+                    className={cn(
+                      "mt-1 rounded-md border-t px-2 py-1.5 pt-2 text-left text-sm hover:bg-muted",
+                      value.presetKey === allTimePreset.key &&
+                        "bg-muted font-medium",
+                    )}
+                  >
+                    {allTimePreset.label}
+                  </button>
                 )}
-              >
-                Custom range
-              </button>
-            </div>
-
-            {customMode && (
-              <div className="mt-2 border-t pt-2">
-                <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
-                  <div>
-                    <div className="px-2 pb-1 text-xs text-muted-foreground">
-                      From
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={draftFrom}
-                      onSelect={setDraftFrom}
-                    />
-                  </div>
-                  <div>
-                    <div className="px-2 pb-1 text-xs text-muted-foreground">
-                      To
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={draftTo}
-                      onSelect={setDraftTo}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 px-2 pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={applyCustom}
-                    disabled={!draftFrom || !draftTo}
-                  >
-                    Apply
-                  </Button>
-                </div>
               </div>
-            )}
+              <Calendar
+                mode="range"
+                numberOfMonths={2}
+                selected={draftRange}
+                onSelect={handleRangeSelect}
+                defaultMonth={defaultMonth}
+                classNames={{ months: "flex flex-row gap-4" }}
+              />
+            </div>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
