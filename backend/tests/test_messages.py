@@ -150,6 +150,42 @@ def test_list_messages_user_isolation(client):
     assert data["messages"][0]["content"] == "User2 message"
 
 
+def test_get_message(client):
+    _setup_user_with_messages(client, count=1)
+    messages = client.get("/api/messages").json()["messages"]
+    msg_id = messages[0]["id"]
+
+    response = client.get(f"/api/messages/{msg_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == msg_id
+    assert data["sender"] == "Sender0"
+    assert data["content"] == "Message 0"
+
+
+def test_get_message_not_found(client):
+    register_and_login(client)
+    response = client.get("/api/messages/9999")
+    assert response.status_code == 404
+
+
+def test_get_other_users_message(client):
+    register_and_login(client, email="user1@example.com")
+    token1 = get_webhook_token(client)
+    create_message(client, token1)
+    messages = client.get("/api/messages").json()["messages"]
+    msg_id = messages[0]["id"]
+
+    register_and_login(client, email="user2@example.com")
+    response = client.get(f"/api/messages/{msg_id}")
+    assert response.status_code == 404
+
+
+def test_get_message_unauthenticated(client):
+    response = client.get("/api/messages/1")
+    assert response.status_code == 401
+
+
 def test_delete_message(client):
     _setup_user_with_messages(client, count=1)
     messages = client.get("/api/messages").json()["messages"]

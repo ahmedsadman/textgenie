@@ -3,9 +3,14 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.database import get_db
 from app.models import User
-from app.schemas import MessageResponse, PaginatedMessagesResponse
+from app.schemas import MessageResponse, PaginatedMessagesResponse, SmsMessageResponse
 from app.services.auth import get_current_user
-from app.services.messages import delete_message, list_messages, list_senders
+from app.services.messages import (
+    delete_message,
+    get_message,
+    list_messages,
+    list_senders,
+)
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
 
@@ -34,6 +39,15 @@ def get_senders(
     db: DBSession = Depends(get_db),
 ):
     return list_senders(db, user)
+
+
+@router.get("/{message_id}", response_model=SmsMessageResponse)
+def get(
+    message_id: int,
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    return get_message(db, user, message_id)
 
 
 @router.delete("/{message_id}", response_model=MessageResponse)
