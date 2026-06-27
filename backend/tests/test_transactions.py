@@ -182,3 +182,127 @@ def test_webhook_skips_transaction_for_blacklisted_sender(
 
     assert db.query(Transaction).count() == 0
 
+
+# --- API ---
+
+
+def _seed_transactions(client, run_message_parse, items):
+    """Seed transactions by calling the webhook with stub providers.
+
+    items: list of (sender, content, type, amount, timestamp_ms)
+    """
+    token = get_webhook_token(client)
+    for sender, content, t_type, amount, ts in items:
+        create_message(client, token, sender=sender, content=content, timestamp=ts)
+        message_id = client.get("/api/messages").json()["messages"][0]["id"]
+        provider = _txn_provider(
+            bank="BRAC Bank",
+            balance=Decimal("0"),
+            amount=Decimal(str(amount)),
+            transaction_type=t_type,
+        )
+        run_message_parse(message_id, provider)
+
+
+def test_get_transactions_empty(client):
+    register_and_login(client)
+    response = client.get("/api/transactions")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transactions"] == []
+    assert body["total"] == 0
+    assert body["totals"] == {"income": "0.00", "expense": "0.00"}
+
+
+def test_get_transactions_returns_list_with_totals(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "credit", "income", 100, 1_700_000_000_000),
+            ("BRAC", "debit", "expense", 30, 1_700_000_001_000),
+            ("BRAC", "credit", "income", 50, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get("/api/transactions").json()
+    assert body["total"] == 3
+    assert len(body["transactions"]) == 3
+    assert body["totals"] == {"income": "150.00", "expense": "30.00"}
+    # ordered date desc
+    dates = [t["date"] for t in body["transactions"]]
+    assert dates == sorted(dates, reverse=True)
+    # joined fields populated
+    first = body["transactions"][0]
+    assert first["sender"] == "BRAC"
+    assert first["bank_name"] == "BRAC Bank"
+
+
+def test_get_transactions_pagination(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    items = [
+        ("BRAC", f"msg{i}", "expense", 10, 1_700_000_000_000 + i * 1000)
+        for i in range(5)
+    ]
+    _seed_transactions(client, run_message_parse, items)
+
+    page1 = client.get("/api/transactions?page=1&page_size=2").json()
+    page2 = client.get("/api/transactions?page=2&page_size=2").json()
+    page3 = client.get("/api/transactions?page=3&page_size=2").json()
+
+    assert page1["total"] == 5
+    assert len(page1["transactions"]) == 2
+    assert len(page2["transactions"]) == 2
+    assert len(page3["transactions"]) == 1
+    # totals are over full range, not per page
+    assert page1["totals"] == {"income": "0.00", "expense": "50.00"}
+    assert page2["totals"] == page1["totals"]
+
+
+def test_get_transactions_date_filter(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "old", "expense", 10, 1_600_000_000_000),  # 2020-09
+            ("BRAC", "mid", "expense", 20, 1_700_000_000_000),  # 2023-11
+            ("BRAC", "new", "income", 30, 1_750_000_000_000),  # 2025-06
+        ],
+    )
+
+    # Filter to the middle window only
+    body = client.get(
+        "/api/transactions",
+        params={
+            "from_date": "2023-01-01T00:00:00Z",
+            "to_date": "2024-01-01T00:00:00Z",
+        },
+    ).json()
+    assert body["total"] == 1
+    assert body["transactions"][0]["amount"] == "20.00"
+    assert body["totals"] == {"income": "0.00", "expense": "20.00"}
+
+
+def test_get_transactions_isolated_by_user(client, run_message_parse):
+    register_and_login(client, email="user1@example.com")
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [("BRAC", "u1", "income", 100, 1_700_000_000_000)],
+    )
+
+    register_and_login(client, email="user2@example.com")
+    body = client.get("/api/transactions").json()
+    assert body["total"] == 0
+    assert body["transactions"] == []
+
+
+def test_get_transactions_unauthenticated(client):
+    response = client.get("/api/transactions")
+    assert response.status_code == 401

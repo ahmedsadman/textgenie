@@ -14,6 +14,7 @@ from app.routers.banks import router as banks_router
 from app.routers.categories import router as categories_router
 from app.routers.messages import router as messages_router
 from app.routers.settings import router as settings_router
+from app.routers.transactions import router as transactions_router
 from app.routers.webhook import router as webhook_router
 from app.services.auth import cleanup_expired_sessions
 
@@ -46,6 +47,7 @@ app.include_router(banks_router)
 app.include_router(categories_router)
 app.include_router(messages_router)
 app.include_router(settings_router)
+app.include_router(transactions_router)
 app.include_router(webhook_router)
 
 
