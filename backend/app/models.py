@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import (
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -39,6 +40,7 @@ class User(Base):
     categories: Mapped[list["Category"]] = relationship(back_populates="user")
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
     banks: Mapped[list["Bank"]] = relationship(back_populates="user")
+    transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")
 
 
 class Session(Base):
@@ -128,3 +130,34 @@ class Bank(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="banks")
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("message_id", name="uq_transaction_message_id"),
+        Index("ix_transaction_user_date", "user_id", "date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    message_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    bank_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("banks.id", ondelete="SET NULL"), nullable=True
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="transactions")
+    bank: Mapped["Bank | None"] = relationship()
+    message: Mapped["Message"] = relationship()

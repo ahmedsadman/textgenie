@@ -68,6 +68,13 @@ def _parse_balance(raw: int | float | str | None) -> Decimal | None:
     return Decimal(str(raw))
 
 
+def _parse_transaction_type(raw: str | None) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip().lower()
+    return value if value in ("income", "expense") else None
+
+
 class GeminiProvider(LLMProvider):
     MODELS = ("gemini-2.5-flash-lite", "gemini-3.1-flash-lite")
     MAX_CYCLES = 3
@@ -168,6 +175,27 @@ class GeminiProvider(LLMProvider):
         data = json.loads(response_text)
         bank = _match_name(data.get("bank"), banks)
         balance = _parse_balance(data.get("balance")) if bank else None
+        amount = _parse_balance(data.get("amount")) if bank else None
+        transaction_type = (
+            _parse_transaction_type(data.get("transaction_type")) if bank else None
+        )
+
+        # amount and transaction_type must both be present to be usable.
+        if amount is None or transaction_type is None:
+            amount = None
+            transaction_type = None
+
         if bank:
-            logger.info("LLM identified bank '%s' with balance %s", bank, balance)
-        return MetadataResult(bank=bank, balance=balance)
+            logger.info(
+                "LLM identified bank '%s' with balance %s, amount %s, type %s",
+                bank,
+                balance,
+                amount,
+                transaction_type,
+            )
+        return MetadataResult(
+            bank=bank,
+            balance=balance,
+            amount=amount,
+            transaction_type=transaction_type,
+        )
