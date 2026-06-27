@@ -96,10 +96,10 @@ export default function AppLayout() {
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
                   buttonVariants({ variant: isActive ? "secondary" : "ghost" }),
-                  "w-full justify-start gap-2",
+                  "h-10 w-full justify-start gap-3 text-base",
                 )}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-5 w-5" />
                 {item.label}
               </Link>
             );
@@ -109,10 +109,10 @@ export default function AppLayout() {
         <div className="border-t p-2">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2"
+            className="h-10 w-full justify-start gap-3 text-base"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5" />
             Logout
           </Button>
         </div>
