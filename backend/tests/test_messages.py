@@ -1,9 +1,9 @@
 from tests.conftest import (
     create_message,
     get_webhook_token,
-    make_mock_provider,
     register_and_login,
 )
+from tests.factories import make_mock_provider
 
 
 def _setup_user_with_messages(client, count=3):

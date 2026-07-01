@@ -7,6 +7,8 @@ import type {
   MetadataBlacklist,
   PaginatedMessages,
   PaginatedTransactions,
+  Transaction,
+  TransactionType,
   User,
   WebhookSettings,
 } from "@/lib/types";
@@ -126,5 +128,10 @@ export const api = {
   getTransactions: (params: TransactionsQuery) =>
     client
       .get<PaginatedTransactions>("/transactions", { params })
+      .then((r) => r.data),
+
+  updateTransaction: (id: number, type: TransactionType) =>
+    client
+      .patch<Transaction>(`/transactions/${id}`, { type })
       .then((r) => r.data),
 };

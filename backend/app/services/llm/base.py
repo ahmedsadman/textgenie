@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
 
-TransactionType = Literal["income", "expense"]
+TransactionType = Literal["income", "expense", "transfer"]
 
 
 @dataclass
@@ -47,17 +47,24 @@ Examples (these use illustrative bank names — always use the bank names provid
 - Message from "BRACBANK": "Acct debit 50.00 BDT. Balance: 2000 BDT" with Banks ["BRAC Bank PLC"] -> bank: "BRAC Bank PLC", balance: 2000, amount: 50.00, transaction_type: "expense"
 - Message from "EBL": "POS Transaction Amount: 3500 BDT Balance: 100000 BDT" with Banks ["EBL", "City Bank"] -> bank: "EBL", balance: 100000, amount: 3500, transaction_type: "expense"
 - Message from "+88019921": "CITYTOUCH credited Amount: 5000 BDT Balance: 100000.00 BDT" with Banks ["EBL", "City Bank"] -> bank: "City Bank", balance: 100000.00, amount: 5000, transaction_type: "income"
+- Message from "MTB": "Payment of 2951.00 BDT credited to your card ending 1234. Outstanding: 0.00" with Banks ["MTB", "City Bank"] -> bank: "MTB", balance: null, amount: 2951.00, transaction_type: "transfer"
+- Message from "EBL": "Bill payment received for card 5678 amount 12000 BDT" with Banks ["EBL"] -> bank: "EBL", balance: null, amount: 12000, transaction_type: "transfer"
+- Message from "City Bank": "Acct debit 2951 BDT. Balance: 50000 BDT" with Banks ["MTB", "City Bank"] -> bank: "City Bank", balance: 50000, amount: 2951, transaction_type: "expense"
 - Message from "BRACBANK": "Your statement is ready. Balance: 2000 BDT" with Banks ["BRAC Bank PLC"] -> bank: "BRAC Bank PLC", balance: 2000, amount: null, transaction_type: null
 - Message from "Daraz": "Sale starts now!" with Banks ["BRAC Bank PLC"] -> bank: null, balance: null, amount: null, transaction_type: null
 - Message from "bKash": "You have received deposit from iBanking of Tk 2,000.00 from City Bank. Fee Tk 0.00. Balance Tk 2,082.19. TrxID DFO7MSENKP" with Banks ["BRAC Bank PLC", "City Bank"] -> bank: null, balance: null, amount: null, transaction_type: null
 
 Respond with this exact JSON object:
-{"bank": "<bank_name>"|null, "balance": <number>|null, "amount": <number>|null, "transaction_type": "income"|"expense"|null}
+{"bank": "<bank_name>"|null, "balance": <number>|null, "amount": <number>|null, "transaction_type": "income"|"expense"|"transfer"|null}
 Rules:
 - bank: use a name from the Banks list, exactly as written, or null. Never invent new names.
 - balance: a plain number (no currency symbol, no commas, no thousands separators), or null. Only set when you have also identified a bank.
 - amount: a plain positive number representing the transaction value, or null. Only set when you have also identified a bank AND the message describes a single concrete transaction (debit, credit, withdrawal, deposit, transfer, payment).
-- transaction_type: "expense" when funds leave the account (debit, withdrawal, payment, purchase); "income" when funds enter (credit, deposit, refund, salary). Null when no transaction is described or direction is ambiguous.
+- transaction_type:
+  - "expense" when funds leave the account (debit, withdrawal, payment, purchase).
+  - "income" when funds enter (credit, deposit, refund, salary).
+  - "transfer" when the message describes a credit-card bill payment being received by the issuer (e.g. "Payment credited to your card", "Bill payment received for card", "Card payment confirmed"). This is funds moving between the user's own accounts, not real income. A plain debit notification from another bank that paid the bill — with no card / payment reference — is still "expense"; pairing of the two halves happens elsewhere.
+  - Null when no transaction is described or direction is ambiguous.
 - amount and transaction_type must either both be set or both be null.\
 """
 

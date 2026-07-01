@@ -5,9 +5,9 @@ from app.services.llm.base import MetadataResult
 from tests.conftest import (
     create_message,
     get_webhook_token,
-    make_mock_provider,
     register_and_login,
 )
+from tests.factories import make_mock_provider
 
 
 def _create_bank(client, name="BRAC Bank"):
@@ -306,3 +306,119 @@ def test_get_transactions_isolated_by_user(client, run_message_parse):
 def test_get_transactions_unauthenticated(client):
     response = client.get("/api/transactions")
     assert response.status_code == 401
+
+
+# --- PATCH /api/transactions/{id} ---
+
+
+def _create_expense(client, run_message_parse, *, amount="50"):
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [("BRAC", "debit", "expense", amount, 1_700_000_000_000)],
+    )
+    return client.get("/api/transactions").json()["transactions"][0]
+
+
+def test_patch_transaction_changes_type(client, run_message_parse):
+    register_and_login(client)
+    tx = _create_expense(client, run_message_parse)
+
+    response = client.patch(f"/api/transactions/{tx['id']}", json={"type": "income"})
+
+    assert response.status_code == 200
+    assert response.json()["type"] == "income"
+    body = client.get("/api/transactions").json()
+    assert body["transactions"][0]["type"] == "income"
+    assert body["totals"] == {"income": "50.00", "expense": "0.00"}
+
+
+def test_patch_transaction_to_transfer_excludes_from_totals(client, run_message_parse):
+    register_and_login(client)
+    tx = _create_expense(client, run_message_parse, amount="80")
+
+    client.patch(f"/api/transactions/{tx['id']}", json={"type": "transfer"})
+
+    body = client.get("/api/transactions").json()
+    assert body["transactions"][0]["type"] == "transfer"
+    assert body["totals"] == {"income": "0.00", "expense": "0.00"}
+
+
+def test_patch_unlinks_pair_when_flipping_away_from_transfer(
+    client, run_message_parse, db
+):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("MTB", "cc credit", "transfer", "100", 1_700_000_000_000),
+            ("CITY", "debit", "expense", "100", 1_700_000_001_000),
+        ],
+    )
+    txs = db.query(Transaction).order_by(Transaction.id).all()
+    transfer_tx, expense_tx = txs[0], txs[1]
+    # Manually link as if the matcher had paired them.
+    transfer_tx.paired_with_id = expense_tx.id
+    expense_tx.paired_with_id = transfer_tx.id
+    expense_tx.type = "transfer"
+    db.commit()
+
+    client.patch(f"/api/transactions/{expense_tx.id}", json={"type": "expense"})
+
+    db.refresh(transfer_tx)
+    db.refresh(expense_tx)
+    assert expense_tx.type == "expense"
+    assert expense_tx.paired_with_id is None
+    # Counterpart's type is untouched — user only spoke for the row they clicked.
+    assert transfer_tx.type == "transfer"
+    assert transfer_tx.paired_with_id is None
+
+
+def test_patch_404_for_other_user(client, run_message_parse):
+    register_and_login(client, email="a@example.com")
+    tx = _create_expense(client, run_message_parse)
+
+    client.post("/api/auth/logout", json={})
+    register_and_login(client, email="b@example.com")
+
+    response = client.patch(f"/api/transactions/{tx['id']}", json={"type": "income"})
+    assert response.status_code == 404
+
+
+def test_patch_unauthenticated(client):
+    response = client.patch("/api/transactions/1", json={"type": "income"})
+    assert response.status_code == 401
+
+
+def test_get_transactions_exposes_paired_fields(client, run_message_parse, db):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("MTB", "cc credit", "transfer", "200", 1_700_000_000_000),
+            ("CITY", "debit", "transfer", "200", 1_700_000_001_000),
+        ],
+    )
+    txs = db.query(Transaction).order_by(Transaction.id).all()
+    txs[0].paired_with_id = txs[1].id
+    txs[1].paired_with_id = txs[0].id
+    db.commit()
+
+    body = client.get("/api/transactions").json()
+    by_id = {t["id"]: t for t in body["transactions"]}
+    assert by_id[txs[0].id]["paired_with_id"] == txs[1].id
+    assert by_id[txs[0].id]["paired_with_message_id"] == txs[1].message_id
+    assert by_id[txs[1].id]["paired_with_id"] == txs[0].id
+    assert by_id[txs[1].id]["paired_with_message_id"] == txs[0].message_id
+
+
+def test_get_transactions_paired_fields_null_when_unpaired(client, run_message_parse):
+    register_and_login(client)
+    tx = _create_expense(client, run_message_parse)
+    assert tx["paired_with_id"] is None
+    assert tx["paired_with_message_id"] is None

@@ -45,7 +45,7 @@ export interface Bank {
   created_at: string;
 }
 
-export type TransactionType = "income" | "expense";
+export type TransactionType = "income" | "expense" | "transfer";
 
 export interface Transaction {
   id: number;
@@ -56,6 +56,8 @@ export interface Transaction {
   amount: string;
   type: TransactionType;
   date: string;
+  paired_with_id: number | null;
+  paired_with_message_id: number | null;
 }
 
 export interface TransactionTotals {

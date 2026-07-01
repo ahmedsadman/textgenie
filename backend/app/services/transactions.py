@@ -1,11 +1,17 @@
 from datetime import datetime
 from decimal import Decimal
 
+from fastapi import HTTPException
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy.orm import aliased
 
 from app.models import Bank, Message, Transaction, User
-from app.schemas import TransactionResponse, TransactionTotals
+from app.schemas import (
+    TransactionResponse,
+    TransactionTotals,
+)
+from app.services.llm.base import TransactionType
 
 
 def _base_query(
@@ -35,6 +41,9 @@ def list_transactions(
 
     total = base.with_entities(func.count(Transaction.id)).scalar() or 0
 
+    # Transfers are intentionally excluded from both totals (they are
+    # neither real income nor real expense — just money moving between
+    # the user's own accounts).
     sums = base.with_entities(
         func.coalesce(
             func.sum(case((Transaction.type == "income", Transaction.amount), else_=0)),
@@ -52,11 +61,13 @@ def list_transactions(
         expense=Decimal(str(sums.expense)),
     )
 
+    paired = aliased(Transaction)
     offset = (page - 1) * page_size
     rows = (
         _base_query(db, user, from_date, to_date)
         .join(Message, Message.id == Transaction.message_id)
         .outerjoin(Bank, Bank.id == Transaction.bank_id)
+        .outerjoin(paired, paired.id == Transaction.paired_with_id)
         .with_entities(
             Transaction.id,
             Transaction.message_id,
@@ -66,6 +77,8 @@ def list_transactions(
             Transaction.amount,
             Transaction.type,
             Transaction.date,
+            Transaction.paired_with_id,
+            paired.message_id.label("paired_with_message_id"),
         )
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .offset(offset)
@@ -73,18 +86,84 @@ def list_transactions(
         .all()
     )
 
-    transactions = [
-        TransactionResponse(
-            id=row.id,
-            message_id=row.message_id,
-            bank_id=row.bank_id,
-            bank_name=row.bank_name,
-            sender=row.sender,
-            amount=row.amount,
-            type=row.type,
-            date=row.date,
-        )
-        for row in rows
-    ]
+    transactions = [_row_to_response(row) for row in rows]
 
     return transactions, total, totals
+
+
+def get_transaction_response(
+    db: DBSession, user: User, transaction_id: int
+) -> TransactionResponse:
+    """Fetch a single transaction in the same shape as list_transactions."""
+    paired = aliased(Transaction)
+    row = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == user.id, Transaction.id == transaction_id)
+        .join(Message, Message.id == Transaction.message_id)
+        .outerjoin(Bank, Bank.id == Transaction.bank_id)
+        .outerjoin(paired, paired.id == Transaction.paired_with_id)
+        .with_entities(
+            Transaction.id,
+            Transaction.message_id,
+            Transaction.bank_id,
+            Bank.name.label("bank_name"),
+            Message.sender,
+            Transaction.amount,
+            Transaction.type,
+            Transaction.date,
+            Transaction.paired_with_id,
+            paired.message_id.label("paired_with_message_id"),
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return _row_to_response(row)
+
+
+def update_transaction(
+    db: DBSession, user: User, transaction_id: int, new_type: TransactionType
+) -> TransactionResponse:
+    """Change a transaction's type. When flipping AWAY from 'transfer'
+    while paired, unlink both sides (but leave the counterpart's type
+    alone — the user only spoke for this side)."""
+    tx = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.user_id == user.id,
+        )
+        .first()
+    )
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    if tx.type == new_type:
+        return get_transaction_response(db, user, transaction_id)
+
+    if tx.type == "transfer" and tx.paired_with_id is not None:
+        counterpart = (
+            db.query(Transaction).filter(Transaction.id == tx.paired_with_id).first()
+        )
+        if counterpart is not None:
+            counterpart.paired_with_id = None
+        tx.paired_with_id = None
+
+    tx.type = new_type
+    db.commit()
+    return get_transaction_response(db, user, transaction_id)
+
+
+def _row_to_response(row) -> TransactionResponse:
+    return TransactionResponse(
+        id=row.id,
+        message_id=row.message_id,
+        bank_id=row.bank_id,
+        bank_name=row.bank_name,
+        sender=row.sender,
+        amount=row.amount,
+        type=row.type,
+        date=row.date,
+        paired_with_id=row.paired_with_id,
+        paired_with_message_id=row.paired_with_message_id,
+    )

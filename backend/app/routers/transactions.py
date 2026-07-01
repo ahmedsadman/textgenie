@@ -5,9 +5,13 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.database import get_db
 from app.models import User
-from app.schemas import PaginatedTransactionsResponse
+from app.schemas import (
+    PaginatedTransactionsResponse,
+    TransactionResponse,
+    TransactionUpdateRequest,
+)
 from app.services.auth import get_current_user
-from app.services.transactions import list_transactions
+from app.services.transactions import list_transactions, update_transaction
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -36,3 +40,13 @@ def get_transactions(
         page_size=page_size,
         totals=totals,
     )
+
+
+@router.patch("/{transaction_id}", response_model=TransactionResponse)
+def patch_transaction(
+    transaction_id: int,
+    body: TransactionUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    return update_transaction(db, user, transaction_id, body.type)

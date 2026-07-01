@@ -5,9 +5,9 @@ from tests.conftest import (
     TestSessionLocal,
     create_message,
     get_webhook_token,
-    make_mock_provider,
     register_and_login,
 )
+from tests.factories import make_mock_provider
 
 
 def test_webhook_creates_message(client):
@@ -155,3 +155,69 @@ def test_webhook_validates_payload_missing_content(client):
     token = get_webhook_token(client)
     response = client.post(f"/api/webhook/{token}", json={"sender": "1234"})
     assert response.status_code == 422
+
+
+def test_transfer_transaction_schedules_match(client, run_message_parse):
+    from decimal import Decimal
+
+    from app.models import Transaction
+    from app.services.llm.base import MetadataResult
+
+    register_and_login(client)
+    client.post("/api/banks", json={"name": "MTB"})
+    token = get_webhook_token(client)
+    create_message(client, token, sender="MTB", content="Payment credited")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = make_mock_provider(
+        category="transaction",
+        metadata=MetadataResult(
+            bank="MTB",
+            balance=None,
+            amount=Decimal("2951"),
+            transaction_type="transfer",
+        ),
+    )
+
+    with patch(
+        "app.services.transfer_matcher.schedule_transfer_match"
+    ) as mock_schedule:
+        run_message_parse(message_id, provider)
+
+    db = TestSessionLocal()
+    try:
+        tx = db.query(Transaction).first()
+        assert tx is not None
+        assert tx.type == "transfer"
+        mock_schedule.assert_called_once_with(tx.id)
+    finally:
+        db.close()
+
+
+def test_expense_transaction_does_not_schedule_match(client, run_message_parse):
+    from decimal import Decimal
+
+    from app.services.llm.base import MetadataResult
+
+    register_and_login(client)
+    client.post("/api/banks", json={"name": "BRAC"})
+    token = get_webhook_token(client)
+    create_message(client, token, sender="BRAC", content="debit 50")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = make_mock_provider(
+        category="transaction",
+        metadata=MetadataResult(
+            bank="BRAC",
+            balance=Decimal("1000"),
+            amount=Decimal("50"),
+            transaction_type="expense",
+        ),
+    )
+
+    with patch(
+        "app.services.transfer_matcher.schedule_transfer_match"
+    ) as mock_schedule:
+        run_message_parse(message_id, provider)
+
+    mock_schedule.assert_not_called()
