@@ -8,7 +8,7 @@ from app.config import GEMINI_API_KEY
 from app.database import SessionLocal
 from app.models import Bank, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
-from app.services import metadata_blacklist
+from app.services import metadata_blacklist, transfer_matcher
 from app.services.categories import DefaultCategory, _categories_filter
 from app.services.llm.base import MetadataResult
 from app.services.llm.provider import get_llm_provider
@@ -79,6 +79,7 @@ def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Messa
 
 def parse_message(message_id: int) -> None:
     db = SessionLocal()
+    new_transfer_tx_id: int | None = None
     try:
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
@@ -93,7 +94,7 @@ def parse_message(message_id: int) -> None:
         category = _categorize_and_assign(db, message)
 
         if _should_extract_metadata(message, user, category):
-            _extract_and_apply_metadata(db, message, user)
+            new_transfer_tx_id = _extract_and_apply_metadata(db, message, user)
 
         db.commit()
     except Exception:
@@ -102,8 +103,12 @@ def parse_message(message_id: int) -> None:
             message_id,
             exc_info=True,
         )
+        return
     finally:
         db.close()
+
+    if new_transfer_tx_id is not None:
+        transfer_matcher.schedule_transfer_match(new_transfer_tx_id)
 
 
 def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
@@ -144,21 +149,27 @@ def _should_extract_metadata(
     return True
 
 
-def _extract_and_apply_metadata(db: DBSession, message: Message, user: User) -> None:
+def _extract_and_apply_metadata(
+    db: DBSession, message: Message, user: User
+) -> int | None:
+    """Return the new transaction id if it was a transfer (for deferred matching)."""
     banks = db.query(Bank).filter(Bank.user_id == user.id).all()
     if not banks:
         logger.info(
             "Message id=%d user has no banks; skipping metadata extraction",
             message.id,
         )
-        return
+        return None
 
     metadata = _extract_metadata(
         message.content, message.sender, [b.name for b in banks]
     )
     bank = _match_bank(banks, metadata.bank)
     _update_bank_balance(bank, metadata, message)
-    _record_transaction(db, user, bank, metadata, message)
+    new_tx = _record_transaction(db, user, bank, metadata, message)
+    if new_tx is not None and new_tx.type == "transfer":
+        return new_tx.id
+    return None
 
 
 def _match_bank(banks: list[Bank], name: str | None) -> Bank | None:
@@ -190,9 +201,9 @@ def _record_transaction(
     bank: Bank | None,
     metadata: MetadataResult,
     message: Message,
-) -> None:
+) -> Transaction | None:
     if not metadata.amount or not metadata.transaction_type:
-        return
+        return None
 
     existing = (
         db.query(Transaction).filter(Transaction.message_id == message.id).first()
@@ -202,21 +213,23 @@ def _record_transaction(
             "Transaction already exists for message id=%d; skipping insert",
             message.id,
         )
-        return
+        return None
 
-    db.add(
-        Transaction(
-            user_id=user.id,
-            message_id=message.id,
-            bank_id=bank.id if bank else None,
-            amount=metadata.amount,
-            type=metadata.transaction_type,
-            date=message.received_at,
-        )
+    tx = Transaction(
+        user_id=user.id,
+        message_id=message.id,
+        bank_id=bank.id if bank else None,
+        amount=metadata.amount,
+        type=metadata.transaction_type,
+        date=message.received_at,
     )
+    db.add(tx)
+    db.flush()  # populate tx.id while keeping the outer transaction open
     logger.info(
-        "Transaction recorded for message id=%d: %s %s",
+        "Transaction recorded for message id=%d: %s %s (tx id=%d)",
         message.id,
         metadata.transaction_type,
         metadata.amount,
+        tx.id,
     )
+    return tx

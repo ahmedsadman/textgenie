@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from decimal import Decimal
+from typing import get_args
 
 import httpx
 from google import genai
@@ -9,7 +10,14 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.config import GEMINI_API_KEY
-from app.services.llm.base import LLMProvider, MetadataResult, ParsePrompt
+from app.services.llm.base import (
+    LLMProvider,
+    MetadataResult,
+    ParsePrompt,
+    TransactionType,
+)
+
+_VALID_TRANSACTION_TYPES = frozenset(get_args(TransactionType))
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +80,7 @@ def _parse_transaction_type(raw: str | None) -> str | None:
     if not isinstance(raw, str):
         return None
     value = raw.strip().lower()
-    return value if value in ("income", "expense") else None
+    return value if value in _VALID_TRANSACTION_TYPES else None
 
 
 class GeminiProvider(LLMProvider):

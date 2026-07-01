@@ -149,6 +149,11 @@ class Transaction(Base):
     bank_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("banks.id", ondelete="SET NULL"), nullable=True
     )
+    paired_with_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("transactions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

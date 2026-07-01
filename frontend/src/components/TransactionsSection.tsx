@@ -1,4 +1,11 @@
-import { ChevronDown, Loader2 } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowLeftRight,
+  ArrowUpLeft,
+  ChevronDown,
+  Link2,
+  Loader2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,10 +19,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { api } from "@/lib/api";
 import { resolveDateRange, type DateRangeSelection } from "@/lib/dateRange";
-import type { Message, PaginatedTransactions } from "@/lib/types";
+import type {
+  Message,
+  PaginatedTransactions,
+  Transaction,
+  TransactionType,
+} from "@/lib/types";
 import { cn, formatMessageDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -25,11 +38,45 @@ const DEFAULT_SELECTION: DateRangeSelection = {
   customRange: null,
 };
 
+const TYPE_OPTIONS: SelectOption<TransactionType>[] = [
+  {
+    value: "expense",
+    label: "Expense",
+    icon: (
+      <ArrowDownRight className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+    ),
+  },
+  {
+    value: "income",
+    label: "Income",
+    icon: (
+      <ArrowUpLeft className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+    ),
+  },
+  {
+    value: "transfer",
+    label: "Transfer",
+    icon: <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />,
+  },
+];
+
 function formatAmount(raw: string): string {
   return new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(raw));
+}
+
+function amountSign(type: TransactionType): string {
+  if (type === "income") return "+";
+  if (type === "expense") return "−";
+  return "";
+}
+
+function amountColorClass(type: TransactionType): string {
+  if (type === "income") return "text-emerald-600 dark:text-emerald-400";
+  if (type === "expense") return "text-red-600 dark:text-red-400";
+  return "text-muted-foreground";
 }
 
 type MessageFetchState =
@@ -113,17 +160,82 @@ export default function TransactionsSection() {
   }, []);
 
   const toggleExpanded = useCallback(
-    (txId: number, messageId: number) => {
-      const willExpand = !expandedTxIds.has(txId);
+    (tx: Transaction) => {
+      const willExpand = !expandedTxIds.has(tx.id);
       setExpandedTxIds((prev) => {
         const next = new Set(prev);
-        if (next.has(txId)) next.delete(txId);
-        else next.add(txId);
+        if (next.has(tx.id)) next.delete(tx.id);
+        else next.add(tx.id);
         return next;
       });
-      if (willExpand) fetchMessage(messageId);
+      if (willExpand) {
+        fetchMessage(tx.message_id);
+        if (tx.paired_with_message_id !== null) {
+          fetchMessage(tx.paired_with_message_id);
+        }
+      }
     },
     [expandedTxIds, fetchMessage],
+  );
+
+  const handleTypeChange = useCallback(
+    (tx: Transaction, newType: TransactionType) => {
+      if (newType === tx.type) return;
+
+      // Optimistic update — patch local state immediately so the dropdown
+      // closes against the new value without waiting for the server.
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          transactions: prev.transactions.map((t) =>
+            t.id === tx.id ? { ...t, type: newType } : t,
+          ),
+        };
+      });
+
+      api.updateTransaction(tx.id, newType).then(
+        (updated) => {
+          // Reconcile with server response — also clears any paired link
+          // when the user flipped away from 'transfer'.
+          setData((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              transactions: prev.transactions.map((t) => {
+                if (t.id === updated.id) return updated;
+                // Counterpart in the same page loses its pair link too.
+                if (
+                  t.paired_with_id === updated.id &&
+                  updated.paired_with_id === null
+                ) {
+                  return {
+                    ...t,
+                    paired_with_id: null,
+                    paired_with_message_id: null,
+                  };
+                }
+                return t;
+              }),
+            };
+          });
+        },
+        () => {
+          toast.error("Failed to update transaction");
+          // Roll back the optimistic change.
+          setData((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              transactions: prev.transactions.map((t) =>
+                t.id === tx.id ? { ...t, type: tx.type } : t,
+              ),
+            };
+          });
+        },
+      );
+    },
+    [],
   );
 
   function handleSelectionChange(next: DateRangeSelection) {
@@ -173,29 +285,32 @@ export default function TransactionsSection() {
         ) : (
           <div className="flex flex-col divide-y rounded-lg border">
             {data.transactions.map((tx) => {
-              const isIncome = tx.type === "income";
               const isExpanded = expandedTxIds.has(tx.id);
-              const messageState = messageStates.get(tx.message_id);
+              const ownMessageState = messageStates.get(tx.message_id);
+              const pairedMessageState =
+                tx.paired_with_message_id !== null
+                  ? messageStates.get(tx.paired_with_message_id)
+                  : undefined;
+              const isPaired = tx.paired_with_id !== null;
+              const sign = amountSign(tx.type);
               return (
                 <Collapsible
                   key={tx.id}
                   open={isExpanded}
-                  onOpenChange={() => toggleExpanded(tx.id, tx.message_id)}
+                  onOpenChange={() => toggleExpanded(tx)}
                 >
                   <div
                     role="button"
                     tabIndex={0}
                     aria-expanded={isExpanded}
-                    aria-label={`Toggle message for ${tx.sender} ${
-                      isIncome ? "+" : "−"
-                    }${formatAmount(tx.amount)} on ${formatMessageDateTime(
-                      tx.date,
-                    )}`}
-                    onClick={() => toggleExpanded(tx.id, tx.message_id)}
+                    aria-label={`Toggle message for ${tx.sender} ${sign}${formatAmount(
+                      tx.amount,
+                    )} on ${formatMessageDateTime(tx.date)}`}
+                    onClick={() => toggleExpanded(tx)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        toggleExpanded(tx.id, tx.message_id);
+                        toggleExpanded(tx);
                       }
                     }}
                     className="group flex cursor-pointer items-center justify-between gap-3 p-3 hover:bg-muted/50"
@@ -218,48 +333,51 @@ export default function TransactionsSection() {
                             {tx.bank_name}
                           </span>
                         )}
+                        {isPaired && (
+                          <Link2
+                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                            aria-label="Linked transfer — paired with another transaction"
+                          />
+                        )}
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {formatMessageDateTime(tx.date)}
                       </div>
                     </div>
                     <div
-                      className={`whitespace-nowrap text-base font-semibold tabular-nums ${
-                        isIncome
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
+                      className={cn(
+                        "whitespace-nowrap text-base font-semibold tabular-nums",
+                        amountColorClass(tx.type),
+                      )}
                     >
-                      {isIncome ? "+" : "−"}
+                      {sign}
                       {formatAmount(tx.amount)}
                     </div>
+                    <Select<TransactionType>
+                      value={tx.type}
+                      onChange={(t) => handleTypeChange(tx, t)}
+                      options={TYPE_OPTIONS}
+                      ariaLabel={`Change transaction type (currently ${tx.type})`}
+                      iconOnly
+                    />
                   </div>
                   <CollapsibleContent>
-                    <div className="border-t bg-muted/30 px-3 py-2.5 pl-10 text-sm text-muted-foreground">
-                      {messageState?.status === "loading" && (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Loading message…</span>
-                        </div>
-                      )}
-                      {messageState?.status === "error" && (
-                        <div className="flex items-center gap-3">
-                          <span className="text-destructive">
-                            Failed to load message.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => fetchMessage(tx.message_id)}
-                            className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      )}
-                      {messageState?.status === "loaded" && (
-                        <p className="whitespace-pre-wrap break-words text-foreground">
-                          {messageState.message.content}
-                        </p>
+                    <div className="flex flex-col gap-2 border-t bg-muted/30 px-3 py-2.5 pl-10 text-sm text-muted-foreground">
+                      <MessageBlock
+                        sender={tx.sender}
+                        state={ownMessageState}
+                        onRetry={() => fetchMessage(tx.message_id)}
+                      />
+                      {isPaired && tx.paired_with_message_id !== null && (
+                        <MessageBlock
+                          sender={pairedSenderLabel(pairedMessageState)}
+                          state={pairedMessageState}
+                          onRetry={() =>
+                            tx.paired_with_message_id !== null &&
+                            fetchMessage(tx.paired_with_message_id)
+                          }
+                          paired
+                        />
                       )}
                     </div>
                   </CollapsibleContent>
@@ -276,5 +394,56 @@ export default function TransactionsSection() {
         />
       </CardContent>
     </Card>
+  );
+}
+
+function pairedSenderLabel(state: MessageFetchState | undefined): string {
+  if (state?.status === "loaded") return state.message.sender;
+  return "Paired transaction";
+}
+
+interface MessageBlockProps {
+  sender: string;
+  state: MessageFetchState | undefined;
+  onRetry: () => void;
+  paired?: boolean;
+}
+
+function MessageBlock({
+  sender,
+  state,
+  onRetry,
+  paired = false,
+}: MessageBlockProps) {
+  return (
+    <div className={cn(paired && "border-t border-dashed pt-2")}>
+      <div className="mb-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        {paired && <Link2 className="h-3 w-3" />}
+        <span>{sender}</span>
+      </div>
+      {state?.status === "loading" && (
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>Loading message…</span>
+        </div>
+      )}
+      {state?.status === "error" && (
+        <div className="flex items-center gap-3">
+          <span className="text-destructive">Failed to load message.</span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {state?.status === "loaded" && (
+        <p className="whitespace-pre-wrap break-words text-foreground">
+          {state.message.content}
+        </p>
+      )}
+    </div>
   );
 }

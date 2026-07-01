@@ -5,9 +5,9 @@ from app.services.llm.base import MetadataResult
 from tests.conftest import (
     create_message,
     get_webhook_token,
-    make_mock_provider,
     register_and_login,
 )
+from tests.factories import make_mock_provider
 
 
 def _create_bank(client, name="BRAC Bank"):

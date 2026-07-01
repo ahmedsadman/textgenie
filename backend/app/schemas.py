@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
+
+from app.services.llm.base import TransactionType
 
 
 def _as_utc_iso(dt: datetime) -> str:
@@ -120,9 +122,6 @@ class BankResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-TransactionType = Literal["income", "expense"]
-
-
 class TransactionResponse(BaseModel):
     id: int
     message_id: int
@@ -132,6 +131,12 @@ class TransactionResponse(BaseModel):
     amount: Decimal
     type: TransactionType
     date: UtcDatetime
+    paired_with_id: int | None = None
+    paired_with_message_id: int | None = None
+
+
+class TransactionUpdateRequest(BaseModel):
+    type: TransactionType
 
 
 class TransactionTotals(BaseModel):
