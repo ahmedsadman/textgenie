@@ -238,6 +238,72 @@ def test_get_transactions_returns_list_with_totals(client, run_message_parse):
     first = body["transactions"][0]
     assert first["sender"] == "BRAC"
     assert first["bank_name"] == "BRAC Bank"
+    assert first["bank_account_type"] == "deposit"
+
+
+def test_get_transactions_exposes_credit_account_type(client, run_message_parse):
+    register_and_login(client)
+    client.post(
+        "/api/banks",
+        json={
+            "name": "Amex Card",
+            "account_type": "credit",
+            "card_digits": "1234|5678",
+        },
+    )
+    token = get_webhook_token(client)
+    create_message(
+        client,
+        token,
+        sender="AMEX",
+        content="Purchase 25 BDT",
+        timestamp=1_700_000_000_000,
+    )
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+    run_message_parse(
+        message_id,
+        _txn_provider(
+            bank="Amex Card",
+            amount=Decimal("25"),
+            transaction_type="expense",
+        ),
+    )
+
+    body = client.get("/api/transactions").json()
+    assert body["total"] == 1
+    tx = body["transactions"][0]
+    assert tx["bank_name"] == "Amex Card"
+    assert tx["bank_account_type"] == "credit"
+
+
+def test_get_transactions_bank_account_type_null_when_unmatched(
+    client, run_message_parse
+):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    token = get_webhook_token(client)
+    create_message(
+        client,
+        token,
+        sender="OTHER",
+        content="Debit 10 BDT",
+        timestamp=1_700_000_000_000,
+    )
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+    run_message_parse(
+        message_id,
+        _txn_provider(
+            bank="Some Other Bank",
+            amount=Decimal("10"),
+            transaction_type="expense",
+        ),
+    )
+
+    body = client.get("/api/transactions").json()
+    tx = body["transactions"][0]
+    assert tx["bank_id"] is None
+    assert tx["bank_name"] is None
+    assert tx["bank_account_type"] is None
 
 
 def test_get_transactions_pagination(client, run_message_parse):

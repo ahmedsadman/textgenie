@@ -14,6 +14,7 @@ const sampleTransactions = {
       message_id: 10,
       bank_id: 1,
       bank_name: "BRAC Bank",
+      bank_account_type: "deposit" as const,
       sender: "BRAC",
       amount: "1500.00",
       type: "income" as const,
@@ -26,6 +27,7 @@ const sampleTransactions = {
       message_id: 11,
       bank_id: 1,
       bank_name: "BRAC Bank",
+      bank_account_type: "deposit" as const,
       sender: "BRAC",
       amount: "250.00",
       type: "expense" as const,
@@ -47,6 +49,7 @@ const pairedTransfers = {
       message_id: 200,
       bank_id: 1,
       bank_name: "MTB",
+      bank_account_type: "deposit" as const,
       sender: "MTB",
       amount: "2951.00",
       type: "transfer" as const,
@@ -59,6 +62,7 @@ const pairedTransfers = {
       message_id: 201,
       bank_id: 2,
       bank_name: "City Bank",
+      bank_account_type: "deposit" as const,
       sender: "CITY",
       amount: "2951.00",
       type: "transfer" as const,
@@ -548,6 +552,58 @@ describe("TransactionsSection", () => {
     ).toBeInTheDocument();
     // Row is restored to its original expense rendering.
     expect(screen.getByText(/−250\.00/)).toBeInTheDocument();
+  });
+
+  it("shows a Credit badge for credit-account transactions only", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json({
+          transactions: [
+            {
+              id: 1,
+              message_id: 10,
+              bank_id: 1,
+              bank_name: "BRAC Bank",
+              bank_account_type: "deposit" as const,
+              sender: "BRAC",
+              amount: "100.00",
+              type: "expense" as const,
+              date: "2026-06-20T10:00:00Z",
+              paired_with_id: null,
+              paired_with_message_id: null,
+            },
+            {
+              id: 2,
+              message_id: 11,
+              bank_id: 2,
+              bank_name: "Amex Card",
+              bank_account_type: "credit" as const,
+              sender: "AMEX",
+              amount: "200.00",
+              type: "expense" as const,
+              date: "2026-06-19T10:00:00Z",
+              paired_with_id: null,
+              paired_with_message_id: null,
+            },
+          ],
+          total: 2,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0.00", expense: "300.00" },
+        }),
+      ),
+    );
+
+    renderWithRouter(<TransactionsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Amex Card")).toBeInTheDocument();
+    });
+    // Only the credit row shows the badge.
+    const badges = screen.getAllByText("Credit");
+    expect(badges).toHaveLength(1);
+    // The deposit row's bank name is present but has no Credit badge sibling.
+    expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
   });
 
   it("persists the selected preset to localStorage", async () => {
