@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DBSession
 
-from app.constants import CREDIT, DEPOSIT
+from app.constants import CREDIT, DEPOSIT, AccountType
 from app.models import Bank, User
 from app.schemas import BankCreateRequest, BankUpdateRequest
 
@@ -21,12 +22,29 @@ def get_bank_by_name(db: DBSession, user_id: int, name: str) -> Bank | None:
     )
 
 
-def create_bank(db: DBSession, user: User, data: BankCreateRequest) -> Bank:
-    name = data.name.strip()
-    if get_bank_by_name(db, user.id, name):
+def _get_user_bank_or_404(db: DBSession, user_id: int, bank_id: int) -> Bank:
+    bank = db.query(Bank).filter(Bank.id == bank_id, Bank.user_id == user_id).first()
+    if not bank:
+        raise HTTPException(status_code=404, detail="Bank not found")
+    return bank
+
+
+def _ensure_name_available(
+    db: DBSession, user_id: int, name: str, exclude_id: int | None = None
+) -> None:
+    query = db.query(Bank).filter(
+        Bank.user_id == user_id, func.lower(Bank.name) == name.lower()
+    )
+    if exclude_id is not None:
+        query = query.filter(Bank.id != exclude_id)
+    if query.first():
         raise HTTPException(status_code=409, detail="Bank already exists")
 
-    # BankCreateRequest guarantees credit ⇒ card_digits and deposit ⇒ no card_digits.
+
+def create_bank(db: DBSession, user: User, data: BankCreateRequest) -> Bank:
+    name = data.name.strip()
+    _ensure_name_available(db, user.id, name)
+
     bank = Bank(
         name=name,
         user_id=user.id,
@@ -39,67 +57,59 @@ def create_bank(db: DBSession, user: User, data: BankCreateRequest) -> Bank:
     return bank
 
 
+def _apply_name(db: DBSession, bank: Bank, name: str) -> None:
+    stripped = name.strip()
+    _ensure_name_available(db, bank.user_id, stripped, exclude_id=bank.id)
+    bank.name = stripped
+
+
+def _apply_last_balance(
+    bank: Bank, effective_type: AccountType, value: Decimal
+) -> None:
+    if effective_type == CREDIT:
+        raise HTTPException(
+            status_code=400, detail="Credit accounts cannot have a balance"
+        )
+    bank.last_balance = value
+    bank.last_balance_at = datetime.now(timezone.utc)
+
+
+def _apply_card_digits(bank: Bank, effective_type: AccountType, value: str) -> None:
+    if effective_type == DEPOSIT:
+        raise HTTPException(
+            status_code=400, detail="Deposit accounts cannot have a card number"
+        )
+    bank.card_digits = value
+
+
+def _apply_account_type(bank: Bank, new_type: AccountType) -> None:
+    """Enforce the destination type's invariants. Idempotent when unchanged."""
+    if new_type == CREDIT:
+        if not bank.card_digits:
+            raise HTTPException(
+                status_code=400, detail="Credit accounts require a card number"
+            )
+        bank.last_balance = None
+        bank.last_balance_at = None
+    else:
+        bank.card_digits = None
+    bank.account_type = new_type
+
+
 def update_bank(
     db: DBSession, user: User, bank_id: int, data: BankUpdateRequest
 ) -> Bank:
-    """PATCH semantics: only fields present in `data` are applied.
-
-    Same-request shape conflicts (credit+last_balance, deposit+card_digits) are
-    caught upstream by BankUpdateRequest.
-    """
-    bank = db.query(Bank).filter(Bank.id == bank_id, Bank.user_id == user.id).first()
-    if not bank:
-        raise HTTPException(status_code=404, detail="Bank not found")
-
-    # The type the bank will have after this PATCH.
-    effective_type = data.account_type or bank.account_type
+    bank = _get_user_bank_or_404(db, user.id, bank_id)
+    effective_type: AccountType = data.account_type or bank.account_type
 
     if data.name is not None:
-        name = data.name.strip()
-        conflict = (
-            db.query(Bank)
-            .filter(
-                Bank.user_id == user.id,
-                func.lower(Bank.name) == name.lower(),
-                Bank.id != bank_id,
-            )
-            .first()
-        )
-        if conflict:
-            raise HTTPException(status_code=409, detail="Bank already exists")
-        bank.name = name
-
+        _apply_name(db, bank, data.name)
     if data.last_balance is not None:
-        if effective_type == CREDIT:
-            raise HTTPException(
-                status_code=400,
-                detail="Credit accounts cannot have a balance",
-            )
-        bank.last_balance = data.last_balance
-        bank.last_balance_at = datetime.now(timezone.utc)
-
+        _apply_last_balance(bank, effective_type, data.last_balance)
     if data.card_digits is not None:
-        if effective_type == DEPOSIT:
-            raise HTTPException(
-                status_code=400,
-                detail="Deposit accounts cannot have a card number",
-            )
-        bank.card_digits = data.card_digits
-
-    # Type flip: enforce the destination's invariants and clear the field that
-    # no longer belongs. Idempotent when the type is unchanged.
+        _apply_card_digits(bank, effective_type, data.card_digits)
     if data.account_type is not None:
-        if data.account_type == CREDIT:
-            if not bank.card_digits:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Credit accounts require a card number",
-                )
-            bank.last_balance = None
-            bank.last_balance_at = None
-        else:
-            bank.card_digits = None
-        bank.account_type = data.account_type
+        _apply_account_type(bank, data.account_type)
 
     db.commit()
     db.refresh(bank)
@@ -107,9 +117,6 @@ def update_bank(
 
 
 def delete_bank(db: DBSession, user: User, bank_id: int) -> None:
-    bank = db.query(Bank).filter(Bank.id == bank_id, Bank.user_id == user.id).first()
-    if not bank:
-        raise HTTPException(status_code=404, detail="Bank not found")
-
+    bank = _get_user_bank_or_404(db, user.id, bank_id)
     db.delete(bank)
     db.commit()
