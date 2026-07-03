@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
 
-from app.services.llm.base import TransactionType
+from app.constants import TransactionType
 
 
 def _as_utc_iso(dt: datetime) -> str:
