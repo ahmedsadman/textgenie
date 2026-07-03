@@ -10,11 +10,11 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.config import GEMINI_API_KEY
+from app.constants import TransactionType
 from app.services.llm.base import (
     LLMProvider,
     MetadataResult,
     ParsePrompt,
-    TransactionType,
 )
 
 _VALID_TRANSACTION_TYPES = frozenset(get_args(TransactionType))

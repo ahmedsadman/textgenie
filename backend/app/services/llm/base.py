@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal
 
-TransactionType = Literal["income", "expense", "transfer"]
+from app.constants import TransactionType
 
 
 @dataclass

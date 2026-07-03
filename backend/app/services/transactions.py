@@ -6,12 +6,12 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import aliased
 
+from app.constants import TransactionType
 from app.models import Bank, Message, Transaction, User
 from app.schemas import (
     TransactionResponse,
     TransactionTotals,
 )
-from app.services.llm.base import TransactionType
 
 
 def _base_query(
