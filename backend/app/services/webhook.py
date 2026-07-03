@@ -1,10 +1,12 @@
 import logging
+import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session as DBSession
 
 from app.config import GEMINI_API_KEY
+from app.constants import CREDIT
 from app.database import SessionLocal
 from app.models import Bank, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
@@ -164,9 +166,13 @@ def _extract_and_apply_metadata(
     metadata = _extract_metadata(
         message.content, message.sender, [b.name for b in banks]
     )
-    bank = _match_bank(banks, metadata.bank)
+
+    bank = _match_credit_card(banks, message.content) or _match_bank(
+        banks, metadata.bank
+    )
     _update_bank_balance(bank, metadata, message)
     new_tx = _record_transaction(db, user, bank, metadata, message)
+
     if new_tx is not None and new_tx.type == "transfer":
         return new_tx.id
     return None
@@ -178,10 +184,31 @@ def _match_bank(banks: list[Bank], name: str | None) -> Bank | None:
     return next((b for b in banks if b.name.lower() == name.lower()), None)
 
 
+def _match_credit_card(banks: list[Bank], content: str) -> Bank | None:
+    for bank in banks:
+        if bank.account_type != CREDIT or not bank.card_digits:
+            continue
+        first4, _, last4 = bank.card_digits.partition("|")
+        if not first4 or not last4:
+            continue
+        pattern = rf"{first4}[\dXx*\s\-]{{0,16}}{last4}"
+        if re.search(pattern, content, re.IGNORECASE):
+            return bank
+    return None
+
+
 def _update_bank_balance(
     bank: Bank | None, metadata: MetadataResult, message: Message
 ) -> None:
     if not bank or metadata.balance is None:
+        return
+    if bank.account_type == CREDIT:
+        logger.info(
+            "Bank id=%d is a credit account; skipping balance update "
+            "from message id=%d",
+            bank.id,
+            message.id,
+        )
         return
     if bank.last_balance_at is not None and message.received_at <= bank.last_balance_at:
         return

@@ -405,3 +405,128 @@ def test_empty_blacklist_behaves_like_no_blacklist(client, run_message_parse):
     run_message_parse(message_id, _txn_provider("BRAC Bank", Decimal("333")))
 
     assert _get_bank(client, bank_id)["last_balance"] == "333.00"
+
+
+# --- Credit accounts: deterministic card-number routing + balance suppression ---
+
+
+def _create_credit_bank(client, name="BRAC Credit Card", card_digits="4988|3711"):
+    return client.post(
+        "/api/banks",
+        json={"name": name, "account_type": "credit", "card_digits": card_digits},
+    )
+
+
+def _txn_provider_full(bank, amount, txn_type, balance=None):
+    md = MetadataResult(
+        bank=bank, balance=balance, amount=amount, transaction_type=txn_type
+    )
+    return make_mock_provider(category="transaction", metadata=md)
+
+
+def test_credit_bank_balance_is_never_stored(client, run_message_parse):
+    """Even when the LLM returns a balance for a credit bank, the guard drops it."""
+    register_and_login(client)
+    bank_id = _create_credit_bank(client).json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(
+        client,
+        token,
+        sender="BRAC",
+        content="Purchase on card 4988****3711. Balance: 50000 BDT",
+    )
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    run_message_parse(message_id, _txn_provider("BRAC Credit Card", Decimal("50000")))
+
+    bank = _get_bank(client, bank_id)
+    assert bank["last_balance"] is None
+    assert bank["last_balance_at"] is None
+
+
+def test_card_sms_routes_to_credit_bank_over_llm_pick(client, run_message_parse):
+    """The card-number regex takes precedence over whatever bank the LLM picked."""
+    register_and_login(client)
+    deposit_id = _create_bank(client, "BRAC Bank").json()["id"]
+    _create_credit_bank(client, name="BRAC Credit Card").json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(
+        client,
+        token,
+        sender="BRAC",
+        content="Purchase on card 4988****3711 for 200 BDT. Balance: 50000",
+    )
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    # LLM incorrectly picks the deposit bank and returns a "balance".
+    provider = _txn_provider_full(
+        "BRAC Bank", Decimal("200"), "expense", balance=Decimal("50000")
+    )
+    run_message_parse(message_id, provider)
+
+    # Deposit balance untouched — the SMS was rerouted to the credit account.
+    assert _get_bank(client, deposit_id)["last_balance"] is None
+
+    # And the transaction was recorded against the credit bank.
+    txns = client.get("/api/transactions").json()["transactions"]
+    assert len(txns) == 1
+    assert txns[0]["bank_name"] == "BRAC Credit Card"
+    assert txns[0]["type"] == "expense"
+    assert txns[0]["amount"] == "200.00"
+
+
+def test_card_match_various_masking_formats(client, run_message_parse):
+    """Match 4988****3711, 4988xx3711, and 4988 **** 3711 — but not a bare 3711."""
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    credit_id = _create_credit_bank(client, name="BRAC Credit Card").json()["id"]
+    token = get_webhook_token(client)
+
+    for content in [
+        "Purchase on card 4988****3711 for 10 BDT",
+        "Purchase on card 4988xx3711 for 10 BDT",
+        "Purchase on card 4988 **** 3711 for 10 BDT",
+    ]:
+        create_message(client, token, sender="BRAC", content=content)
+        message_id = client.get("/api/messages").json()["messages"][0]["id"]
+        run_message_parse(
+            message_id, _txn_provider_full("BRAC Bank", Decimal("10"), "expense")
+        )
+
+    # Bare last4 alone must NOT trigger a match — routes to LLM pick (BRAC Bank).
+    create_message(
+        client,
+        token,
+        sender="BRAC",
+        content="Your PIN is 3711. Do not share.",
+    )
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+    run_message_parse(
+        message_id, _txn_provider_full("BRAC Bank", Decimal("1"), "expense")
+    )
+
+    txns = client.get("/api/transactions").json()["transactions"]
+    assert len(txns) == 4
+    on_credit = [
+        t for t in txns if t["bank_id"] == credit_id and t["amount"] == "10.00"
+    ]
+    on_deposit = [t for t in txns if t["bank_id"] != credit_id]
+    assert len(on_credit) == 3
+    assert len(on_deposit) == 1  # the "PIN 3711" one — bare last4 did not match
+
+
+def test_deposit_bank_still_stores_balance(client, run_message_parse):
+    """Regression: adding credit routing does not break the deposit path."""
+    register_and_login(client)
+    deposit_id = _create_bank(client, "BRAC Bank").json()["id"]
+    _create_credit_bank(client, name="BRAC Credit Card")
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="BRAC", content="Balance: 1234 BDT")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    run_message_parse(message_id, _txn_provider("BRAC Bank", Decimal("1234")))
+
+    assert _get_bank(client, deposit_id)["last_balance"] == "1234.00"
