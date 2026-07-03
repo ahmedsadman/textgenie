@@ -116,6 +116,10 @@ class Bank(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    account_type: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="deposit"
+    )
+    card_digits: Mapped[str | None] = mapped_column(String(9), nullable=True)
     last_balance: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     last_balance_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
