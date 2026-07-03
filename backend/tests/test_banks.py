@@ -112,7 +112,7 @@ def test_update_bank_rename(client):
     register_and_login(client)
     bank_id = create_bank(client, name="BRAC Bank").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={"name": "BRAC Bank PLC"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"name": "BRAC Bank PLC"})
     assert response.status_code == 200
     assert response.json()["name"] == "BRAC Bank PLC"
 
@@ -122,7 +122,7 @@ def test_update_bank_set_balance_stamps_timestamp(client):
     bank_id = create_bank(client, name="BRAC Bank").json()["id"]
 
     before = datetime.now(timezone.utc) - timedelta(seconds=1)
-    response = client.put(f"/api/banks/{bank_id}", json={"last_balance": "1500.50"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"last_balance": "1500.50"})
     after = datetime.now(timezone.utc) + timedelta(seconds=1)
 
     assert response.status_code == 200
@@ -140,7 +140,7 @@ def test_update_bank_rename_and_set_balance(client):
     register_and_login(client)
     bank_id = create_bank(client, name="BRAC").json()["id"]
 
-    response = client.put(
+    response = client.patch(
         f"/api/banks/{bank_id}",
         json={"name": "BRAC Bank PLC", "last_balance": "500.00"},
     )
@@ -155,14 +155,14 @@ def test_update_bank_no_fields_noop(client):
     register_and_login(client)
     bank_id = create_bank(client, name="BRAC Bank").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={})
+    response = client.patch(f"/api/banks/{bank_id}", json={})
     assert response.status_code == 200
     assert response.json()["name"] == "BRAC Bank"
 
 
 def test_update_bank_not_found(client):
     register_and_login(client)
-    response = client.put("/api/banks/999", json={"name": "Ghost"})
+    response = client.patch("/api/banks/999", json={"name": "Ghost"})
     assert response.status_code == 404
 
 
@@ -171,7 +171,7 @@ def test_update_bank_duplicate_name(client):
     create_bank(client, name="BRAC Bank")
     bank_id = create_bank(client, name="EBL").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={"name": "BRAC Bank"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"name": "BRAC Bank"})
     assert response.status_code == 409
 
 
@@ -180,7 +180,7 @@ def test_update_bank_duplicate_name_case_insensitive(client):
     create_bank(client, name="BRAC Bank")
     bank_id = create_bank(client, name="EBL").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={"name": "brac bank"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"name": "brac bank"})
     assert response.status_code == 409
 
 
@@ -188,7 +188,7 @@ def test_update_bank_same_name_succeeds(client):
     register_and_login(client)
     bank_id = create_bank(client, name="BRAC Bank").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={"name": "BRAC Bank"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"name": "BRAC Bank"})
     assert response.status_code == 200
     assert response.json()["name"] == "BRAC Bank"
 
@@ -197,7 +197,7 @@ def test_update_bank_negative_balance_rejected(client):
     register_and_login(client)
     bank_id = create_bank(client, name="BRAC Bank").json()["id"]
 
-    response = client.put(f"/api/banks/{bank_id}", json={"last_balance": "-10.00"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"last_balance": "-10.00"})
     assert response.status_code == 422
 
 
@@ -206,7 +206,7 @@ def test_update_other_users_bank(client):
     bank_id = create_bank(client, name="Private Bank").json()["id"]
 
     register_and_login(client, email="user2@example.com")
-    response = client.put(f"/api/banks/{bank_id}", json={"name": "Stolen"})
+    response = client.patch(f"/api/banks/{bank_id}", json={"name": "Stolen"})
     assert response.status_code == 404
 
 
