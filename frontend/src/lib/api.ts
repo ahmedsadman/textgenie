@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import type {
+  AccountType,
   Bank,
   Category,
   Message,
@@ -13,9 +14,17 @@ import type {
   WebhookSettings,
 } from "@/lib/types";
 
+export interface BankCreate {
+  name: string;
+  account_type?: AccountType;
+  card_digits?: string | null;
+}
+
 export interface BankUpdate {
   name?: string;
   last_balance?: string;
+  account_type?: AccountType;
+  card_digits?: string | null;
 }
 
 export class ApiError extends Error {
@@ -116,8 +125,8 @@ export const api = {
 
   getBanks: () => client.get<Bank[]>("/banks").then((r) => r.data),
 
-  createBank: (name: string) =>
-    client.post<Bank>("/banks", { name }).then((r) => r.data),
+  createBank: (data: BankCreate) =>
+    client.post<Bank>("/banks", data).then((r) => r.data),
 
   updateBank: (id: number, data: BankUpdate) =>
     client.patch<Bank>(`/banks/${id}`, data).then((r) => r.data),
