@@ -37,9 +37,13 @@ export interface MetadataBlacklist {
   senders: string[];
 }
 
+export type AccountType = "deposit" | "credit";
+
 export interface Bank {
   id: number;
   name: string;
+  account_type: AccountType;
+  card_digits: string | null;
   last_balance: string | null;
   last_balance_at: string | null;
   created_at: string;

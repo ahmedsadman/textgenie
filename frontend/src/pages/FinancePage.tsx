@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,9 +23,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import BankFormDialog from "@/components/BankFormDialog";
 import TransactionsSection from "@/components/TransactionsSection";
-import { ApiError, api, type BankUpdate } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import type { Bank } from "@/lib/types";
 
 function formatBalance(balance: string | null): string {
@@ -61,16 +62,17 @@ function formatRelativeTime(iso: string | null): string {
   return date.toLocaleDateString();
 }
 
+function creditCardLast4(cardDigits: string | null): string | null {
+  if (!cardDigits) return null;
+  const [, last = ""] = cardDigits.split("|");
+  return last || null;
+}
+
 export default function FinancePage() {
   const [banks, setBanks] = useState<Bank[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [editingBalance, setEditingBalance] = useState("");
-  const [editingBalanceTouched, setEditingBalanceTouched] = useState(false);
-  const editInputRef = useRef<HTMLInputElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<Bank | null>(null);
 
   function loadBanks() {
     return api
@@ -83,65 +85,14 @@ export default function FinancePage() {
     loadBanks().finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (editingId !== null) {
-      editInputRef.current?.focus();
-    }
-  }, [editingId]);
-
-  async function handleAdd(e: FormEvent) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setSubmitting(true);
-
-    try {
-      await api.createBank(newName);
-      await loadBanks();
-      setNewName("");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to add bank");
-      }
-    } finally {
-      setSubmitting(false);
-    }
+  function openAddDialog() {
+    setEditingBank(null);
+    setDialogOpen(true);
   }
 
-  function startEditing(bank: Bank) {
-    setEditingId(bank.id);
-    setEditingName(bank.name);
-    setEditingBalance(bank.last_balance ?? "");
-    setEditingBalanceTouched(false);
-  }
-
-  function cancelEditing() {
-    setEditingId(null);
-    setEditingName("");
-    setEditingBalance("");
-    setEditingBalanceTouched(false);
-  }
-
-  async function saveEdit(bankId: number) {
-    if (!editingName.trim()) return;
-
-    const update: BankUpdate = { name: editingName };
-    if (editingBalanceTouched && editingBalance.trim() !== "") {
-      update.last_balance = editingBalance;
-    }
-
-    try {
-      await api.updateBank(bankId, update);
-      await loadBanks();
-      cancelEditing();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to update bank");
-      }
-    }
+  function openEditDialog(bank: Bank) {
+    setEditingBank(bank);
+    setDialogOpen(true);
   }
 
   async function handleDelete(bankId: number) {
@@ -179,19 +130,14 @@ export default function FinancePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Banks</CardTitle>
+          <CardAction>
+            <Button onClick={openAddDialog}>
+              <Plus className="h-4 w-4" />
+              Add Bank
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <form onSubmit={handleAdd} className="flex gap-2">
-            <Input
-              placeholder="New bank name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <Button type="submit" disabled={submitting || !newName.trim()}>
-              {submitting ? "Adding..." : "Add"}
-            </Button>
-          </form>
-
           {banks.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No banks yet. Add your first bank to start tracking balances from
@@ -201,92 +147,64 @@ export default function FinancePage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {banks.map((bank) => (
                 <Card key={bank.id} className="gap-3 py-4">
-                  {editingId === bank.id ? (
-                    <CardContent className="flex flex-col gap-2">
-                      <Input
-                        ref={editInputRef}
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        placeholder="Bank name"
-                      />
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editingBalance}
-                        onChange={(e) => {
-                          setEditingBalance(e.target.value);
-                          setEditingBalanceTouched(true);
-                        }}
-                        placeholder="Balance (optional)"
-                      />
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => saveEdit(bank.id)}
-                          aria-label="Save"
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 truncate">
+                      <span className="truncate">{bank.name}</span>
+                      {bank.account_type === "credit" && (
+                        <Badge variant="muted">Credit</Badge>
+                      )}
+                    </CardTitle>
+                    <CardAction className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(bank)}
+                        aria-label="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Delete"
+                            />
+                          }
                         >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={cancelEditing}
-                          aria-label="Cancel"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  ) : (
-                    <>
-                      <CardHeader>
-                        <CardTitle className="truncate">{bank.name}</CardTitle>
-                        <CardAction className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => startEditing(bank)}
-                            aria-label="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Delete"
-                                />
-                              }
+                          <Trash2 className="h-4 w-4" />
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete bank</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete &quot;
+                              {bank.name}&quot;? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              onClick={() => handleDelete(bank.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete bank</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete &quot;
-                                  {bank.name}&quot;? This action cannot be
-                                  undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  variant="destructive"
-                                  onClick={() => handleDelete(bank.id)}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </CardAction>
-                      </CardHeader>
-                      <CardContent>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    {bank.account_type === "credit" ? (
+                      <p className="text-sm text-muted-foreground italic">
+                        {creditCardLast4(bank.card_digits)
+                          ? `Card •••• ${creditCardLast4(bank.card_digits)} · not counted in total`
+                          : "Credit card · not counted in total"}
+                      </p>
+                    ) : (
+                      <>
                         <p
                           className={`text-2xl tabular-nums ${
                             bank.last_balance === null
@@ -301,15 +219,23 @@ export default function FinancePage() {
                             Updated {formatRelativeTime(bank.last_balance_at)}
                           </p>
                         )}
-                      </CardContent>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </CardContent>
                 </Card>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {dialogOpen && (
+        <BankFormDialog
+          bank={editingBank}
+          onClose={() => setDialogOpen(false)}
+          onSaved={loadBanks}
+        />
+      )}
 
       <TransactionsSection />
     </div>
