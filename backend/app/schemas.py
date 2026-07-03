@@ -155,6 +155,7 @@ class TransactionResponse(BaseModel):
     message_id: int
     bank_id: int | None
     bank_name: str | None
+    bank_account_type: AccountType | None = None
     sender: str
     amount: Decimal
     type: TransactionType

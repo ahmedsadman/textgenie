@@ -56,6 +56,7 @@ export interface Transaction {
   message_id: number;
   bank_id: number | null;
   bank_name: string | null;
+  bank_account_type: AccountType | null;
   sender: string;
   amount: string;
   type: TransactionType;

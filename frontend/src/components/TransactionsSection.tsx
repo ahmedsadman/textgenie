@@ -333,6 +333,14 @@ export default function TransactionsSection() {
                             {tx.bank_name}
                           </span>
                         )}
+                        {tx.bank_account_type === "credit" && (
+                          <span
+                            className="rounded-md bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                            title="Credit card — excluded from bank balance"
+                          >
+                            Credit
+                          </span>
+                        )}
                         {isPaired && (
                           <Link2
                             className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
