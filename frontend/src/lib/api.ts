@@ -120,7 +120,7 @@ export const api = {
     client.post<Bank>("/banks", { name }).then((r) => r.data),
 
   updateBank: (id: number, data: BankUpdate) =>
-    client.put<Bank>(`/banks/${id}`, data).then((r) => r.data),
+    client.patch<Bank>(`/banks/${id}`, data).then((r) => r.data),
 
   deleteBank: (id: number) =>
     client.delete<void>(`/banks/${id}`).then((r) => r.data),

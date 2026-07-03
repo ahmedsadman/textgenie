@@ -142,7 +142,7 @@ describe("FinancePage", () => {
       created_at: "2026-01-01T00:00:00Z",
     };
     server.use(
-      http.put("/api/banks/1", () => {
+      http.patch("/api/banks/1", () => {
         putCalled = true;
         return HttpResponse.json(renamed);
       }),
@@ -181,7 +181,7 @@ describe("FinancePage", () => {
       created_at: "2026-01-02T00:00:00Z",
     };
     server.use(
-      http.put("/api/banks/2", () => {
+      http.patch("/api/banks/2", () => {
         putCalled = true;
         return HttpResponse.json(updated);
       }),

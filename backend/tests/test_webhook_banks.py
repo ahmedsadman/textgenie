@@ -147,7 +147,7 @@ def test_manual_put_then_older_sms_does_not_overwrite(client, run_message_parse)
     bank_id = _create_bank(client, "BRAC Bank").json()["id"]
     token = get_webhook_token(client)
 
-    client.put(f"/api/banks/{bank_id}", json={"last_balance": "999.00"})
+    client.patch(f"/api/banks/{bank_id}", json={"last_balance": "999.00"})
 
     create_message(
         client, token, sender="BRAC", content="Balance: 1", timestamp=1_000_000_000_000

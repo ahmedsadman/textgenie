@@ -37,7 +37,7 @@ def create(
     return create_bank(db, user, data)
 
 
-@router.put("/{bank_id}", response_model=BankResponse)
+@router.patch("/{bank_id}", response_model=BankResponse)
 def update(
     bank_id: int,
     data: BankUpdateRequest,
