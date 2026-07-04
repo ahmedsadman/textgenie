@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -25,7 +24,7 @@ import {
 } from "@/components/ui/card";
 import BankFormDialog from "@/components/BankFormDialog";
 import TransactionsSection from "@/components/TransactionsSection";
-import { ApiError, api } from "@/lib/api";
+import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
 import type { Bank } from "@/lib/types";
 
 function formatBalance(balance: string | null): string {
@@ -69,21 +68,10 @@ function creditCardLast4(cardDigits: string | null): string | null {
 }
 
 export default function FinancePage() {
-  const [banks, setBanks] = useState<Bank[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: banks, isPending } = useBanks();
+  const deleteBank = useDeleteBank();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Bank | null>(null);
-
-  function loadBanks() {
-    return api
-      .getBanks()
-      .then(setBanks)
-      .catch(() => toast.error("Failed to load banks"));
-  }
-
-  useEffect(() => {
-    loadBanks().finally(() => setLoading(false));
-  }, []);
 
   function openAddDialog() {
     setEditingBank(null);
@@ -95,20 +83,7 @@ export default function FinancePage() {
     setDialogOpen(true);
   }
 
-  async function handleDelete(bankId: number) {
-    try {
-      await api.deleteBank(bankId);
-      await loadBanks();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to delete bank");
-      }
-    }
-  }
-
-  if (loading || !banks) {
+  if (isPending || !banks) {
     return <p className="text-muted-foreground">Loading...</p>;
   }
 
@@ -187,7 +162,7 @@ export default function FinancePage() {
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               variant="destructive"
-                              onClick={() => handleDelete(bank.id)}
+                              onClick={() => deleteBank.mutate(bank.id)}
                             >
                               Delete
                             </AlertDialogAction>
@@ -233,7 +208,6 @@ export default function FinancePage() {
         <BankFormDialog
           bank={editingBank}
           onClose={() => setDialogOpen(false)}
-          onSaved={loadBanks}
         />
       )}
 

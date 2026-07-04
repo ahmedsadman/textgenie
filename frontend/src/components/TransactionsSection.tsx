@@ -6,8 +6,7 @@ import {
   Link2,
   Loader2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import DateRangePicker from "@/components/DateRangePicker";
 import PaginationNav from "@/components/PaginationNav";
@@ -21,14 +20,13 @@ import {
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import {
+  useTransactions,
+  useUpdateTransactionType,
+} from "@/hooks/queries/useTransactions";
 import { api } from "@/lib/api";
 import { resolveDateRange, type DateRangeSelection } from "@/lib/dateRange";
-import type {
-  Message,
-  PaginatedTransactions,
-  Transaction,
-  TransactionType,
-} from "@/lib/types";
+import type { Message, Transaction, TransactionType } from "@/lib/types";
 import { cn, formatMessageDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -90,8 +88,6 @@ export default function TransactionsSection() {
     DEFAULT_SELECTION,
   );
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<PaginatedTransactions | null>(null);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [expandedTxIds, setExpandedTxIds] = useState<Set<number>>(
     () => new Set(),
   );
@@ -102,31 +98,18 @@ export default function TransactionsSection() {
   >(() => new Map());
 
   const resolved = useMemo(() => resolveDateRange(selection), [selection]);
+  const queryParams = useMemo(
+    () => ({
+      page,
+      page_size: PAGE_SIZE,
+      from_date: resolved.from ?? undefined,
+      to_date: resolved.to ?? undefined,
+    }),
+    [page, resolved.from, resolved.to],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    api
-      .getTransactions({
-        page,
-        page_size: PAGE_SIZE,
-        from_date: resolved.from ?? undefined,
-        to_date: resolved.to ?? undefined,
-      })
-      .then((response) => {
-        if (!cancelled) setData(response);
-      })
-      .catch(() => {
-        if (!cancelled) toast.error("Failed to load transactions");
-      })
-      .finally(() => {
-        if (!cancelled) setHasLoaded(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, resolved.from, resolved.to]);
+  const { data, isPending } = useTransactions(queryParams);
+  const updateType = useUpdateTransactionType(queryParams);
 
   const fetchMessage = useCallback((messageId: number) => {
     if (messageCache.current.has(messageId)) return;
@@ -181,61 +164,9 @@ export default function TransactionsSection() {
   const handleTypeChange = useCallback(
     (tx: Transaction, newType: TransactionType) => {
       if (newType === tx.type) return;
-
-      // Optimistic update — patch local state immediately so the dropdown
-      // closes against the new value without waiting for the server.
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          transactions: prev.transactions.map((t) =>
-            t.id === tx.id ? { ...t, type: newType } : t,
-          ),
-        };
-      });
-
-      api.updateTransaction(tx.id, newType).then(
-        (updated) => {
-          // Reconcile with server response — also clears any paired link
-          // when the user flipped away from 'transfer'.
-          setData((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              transactions: prev.transactions.map((t) => {
-                if (t.id === updated.id) return updated;
-                // Counterpart in the same page loses its pair link too.
-                if (
-                  t.paired_with_id === updated.id &&
-                  updated.paired_with_id === null
-                ) {
-                  return {
-                    ...t,
-                    paired_with_id: null,
-                    paired_with_message_id: null,
-                  };
-                }
-                return t;
-              }),
-            };
-          });
-        },
-        () => {
-          toast.error("Failed to update transaction");
-          // Roll back the optimistic change.
-          setData((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              transactions: prev.transactions.map((t) =>
-                t.id === tx.id ? { ...t, type: tx.type } : t,
-              ),
-            };
-          });
-        },
-      );
+      updateType.mutate({ id: tx.id, type: newType });
     },
-    [],
+    [updateType],
   );
 
   function handleSelectionChange(next: DateRangeSelection) {
@@ -274,7 +205,7 @@ export default function TransactionsSection() {
           </div>
         </div>
 
-        {!hasLoaded ? (
+        {isPending ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Loading...
           </p>
