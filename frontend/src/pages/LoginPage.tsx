@@ -1,6 +1,5 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,31 +11,20 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, api } from "@/lib/api";
+import { useLogin } from "@/hooks/queries/useAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const login = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      await api.login(email, password);
-      navigate("/");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setLoading(false);
-    }
+    login.mutate({ email, password }, { onSuccess: () => navigate("/") });
   }
+
+  const loading = login.isPending;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">

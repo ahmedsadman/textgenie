@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 
 import CategoriesSection from "@/components/CategoriesSection";
 import { server } from "@/mocks/server";
-import { renderWithRouter } from "@/test-utils";
+import { renderWithQueryClient } from "@/test-utils";
 
 const mockCategories = [
   {
@@ -28,7 +28,7 @@ const mockCategories = [
 ];
 
 function renderSection() {
-  return renderWithRouter(<CategoriesSection />);
+  return renderWithQueryClient(<CategoriesSection />);
 }
 
 describe("CategoriesSection", () => {
@@ -58,18 +58,23 @@ describe("CategoriesSection", () => {
   });
 
   it("adds a new category", async () => {
+    let created = false;
+    const newCategory = {
+      id: 10,
+      name: "travel",
+      is_default: false,
+      created_at: "2026-01-01T00:00:00Z",
+    };
     server.use(
-      http.post("/api/categories", () =>
+      http.get("/api/categories", () =>
         HttpResponse.json(
-          {
-            id: 10,
-            name: "travel",
-            is_default: false,
-            created_at: "2026-01-01T00:00:00Z",
-          },
-          { status: 201 },
+          created ? [...mockCategories, newCategory] : mockCategories,
         ),
       ),
+      http.post("/api/categories", () => {
+        created = true;
+        return HttpResponse.json(newCategory, { status: 201 });
+      }),
     );
 
     renderSection();
@@ -116,14 +121,20 @@ describe("CategoriesSection", () => {
   });
 
   it("edits a category inline", async () => {
+    let updated = false;
+    const renamed = { ...mockCategories[0], name: "utilities" };
     server.use(
-      http.put("/api/categories/1", () =>
-        HttpResponse.json({
-          id: 1,
-          name: "utilities",
-          created_at: "2026-01-01T00:00:00Z",
-        }),
+      http.get("/api/categories", () =>
+        HttpResponse.json(
+          updated
+            ? [renamed, mockCategories[1], mockCategories[2]]
+            : mockCategories,
+        ),
       ),
+      http.put("/api/categories/1", () => {
+        updated = true;
+        return HttpResponse.json(renamed);
+      }),
     );
 
     renderSection();
@@ -165,10 +176,17 @@ describe("CategoriesSection", () => {
   });
 
   it("deletes a category after confirmation", async () => {
+    let deleted = false;
     server.use(
-      http.delete("/api/categories/1", () =>
-        HttpResponse.json({ message: "Category deleted" }),
+      http.get("/api/categories", () =>
+        HttpResponse.json(
+          deleted ? [mockCategories[1], mockCategories[2]] : mockCategories,
+        ),
       ),
+      http.delete("/api/categories/1", () => {
+        deleted = true;
+        return HttpResponse.json({ message: "Category deleted" });
+      }),
     );
 
     renderSection();

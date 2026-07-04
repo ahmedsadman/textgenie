@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
 import DashboardPage from "@/pages/DashboardPage";
-import { mockUser, renderWithOutletContext } from "@/test-utils";
+import { mockUser, renderWithQueryClientAndOutletContext } from "@/test-utils";
 
 const mockCategories = [
   { id: 1, name: "finance", created_at: "2026-01-01T00:00:00Z" },
@@ -38,7 +38,9 @@ const mockMessages = {
 const emptyMessages = { messages: [], total: 0, page: 1, page_size: 20 };
 
 function renderDashboard() {
-  return renderWithOutletContext(<DashboardPage />, { user: mockUser });
+  return renderWithQueryClientAndOutletContext(<DashboardPage />, {
+    user: mockUser,
+  });
 }
 
 describe("DashboardPage", () => {
@@ -83,10 +85,24 @@ describe("DashboardPage", () => {
   });
 
   it("deletes a message after confirmation", async () => {
+    let deleted = false;
     server.use(
-      http.delete("/api/messages/1", () =>
-        HttpResponse.json({ message: "Message deleted" }),
+      http.get("/api/messages", () =>
+        HttpResponse.json(
+          deleted
+            ? {
+                messages: [mockMessages.messages[1]],
+                total: 1,
+                page: 1,
+                page_size: 5,
+              }
+            : mockMessages,
+        ),
       ),
+      http.delete("/api/messages/1", () => {
+        deleted = true;
+        return HttpResponse.json({ message: "Message deleted" });
+      }),
     );
 
     const user = userEvent.setup();

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 import {
   Landmark,
@@ -12,8 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ApiError, api } from "@/lib/api";
-import type { User } from "@/lib/types";
+import { useLogout, useMe } from "@/hooks/queries/useAuth";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -25,32 +23,21 @@ const NAV_ITEMS = [
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: user, isPending, isError } = useMe();
+  const logout = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    api
-      .getMe()
-      .then(setUser)
-      .catch(() => navigate("/login", { replace: true }))
-      .finally(() => setLoading(false));
-  }, [navigate]);
+    if (isError) navigate("/login", { replace: true });
+  }, [isError, navigate]);
 
-  async function handleLogout() {
-    try {
-      await api.logout();
-      navigate("/login");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Logout failed");
-      }
-    }
+  function handleLogout() {
+    logout.mutate(undefined, {
+      onSuccess: () => navigate("/login"),
+    });
   }
 
-  if (loading) {
+  if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>

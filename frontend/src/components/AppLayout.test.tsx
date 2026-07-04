@@ -1,20 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { BrowserRouter } from "react-router-dom";
-import { Toaster } from "sonner";
 
 import AppLayout from "@/components/AppLayout";
 import { server } from "@/mocks/server";
-import { mockUser } from "@/test-utils";
+import { mockUser, renderWithQueryClient } from "@/test-utils";
 
 function renderLayout() {
-  return render(
-    <BrowserRouter>
-      <AppLayout />
-      <Toaster />
-    </BrowserRouter>,
-  );
+  return renderWithQueryClient(<AppLayout />);
 }
 
 describe("AppLayout", () => {

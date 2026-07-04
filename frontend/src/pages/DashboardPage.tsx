@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { toast } from "sonner";
 import { Popover } from "@base-ui/react/popover";
 
 import { ChevronDown, Filter, Search, Trash2, X } from "lucide-react";
@@ -27,8 +26,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import PaginationNav from "@/components/PaginationNav";
-import { ApiError, api } from "@/lib/api";
-import type { Category, PaginatedMessages, User } from "@/lib/types";
+import { useCategories } from "@/hooks/queries/useCategories";
+import { useDeleteMessage, useMessages } from "@/hooks/queries/useMessages";
+import type { User } from "@/lib/types";
 import { cn, formatMessageDateTime, getCategoryColor } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
@@ -36,49 +36,21 @@ const PAGE_SIZE = 5;
 export default function DashboardPage() {
   const { user } = useOutletContext<{ user: User }>();
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [messages, setMessages] = useState<PaginatedMessages | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const [page, setPage] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      const trimmedSearch = debouncedSearch.trim();
-      try {
-        const [categoriesData, messagesData] = await Promise.all([
-          categories.length > 0
-            ? Promise.resolve(categories)
-            : api.getCategories(),
-          api.getMessages({
-            page,
-            page_size: PAGE_SIZE,
-            category_ids:
-              selectedCategories.length > 0 ? selectedCategories : undefined,
-            search: trimmedSearch || undefined,
-          }),
-        ]);
-        if (cancelled) return;
-        setCategories(categoriesData);
-        setMessages(messagesData);
-      } catch {
-        if (!cancelled) toast.error("Failed to load messages");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [page, selectedCategories, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { data: categories = [] } = useCategories();
+  const { data: messages, isPending } = useMessages({
+    page,
+    page_size: PAGE_SIZE,
+    category_ids:
+      selectedCategories.length > 0 ? selectedCategories : undefined,
+    search: debouncedSearch.trim() || undefined,
+  });
+  const deleteMessage = useDeleteMessage();
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -101,31 +73,19 @@ export default function DashboardPage() {
     setPage(1);
   }
 
-  async function handleDeleteMessage(messageId: number) {
-    try {
-      await api.deleteMessage(messageId);
-      if (messages) {
-        const remaining = messages.messages.filter((m) => m.id !== messageId);
-        if (remaining.length === 0 && page > 1) {
-          setPage(page - 1);
-        } else {
-          setMessages({
-            ...messages,
-            messages: remaining,
-            total: messages.total - 1,
-          });
-        }
-      }
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to delete message");
-      }
-    }
+  function handleDeleteMessage(messageId: number) {
+    // If this was the only message on the current page, step back one after
+    // the delete lands so the refetch doesn't leave an empty page.
+    const wasOnlyOnPage =
+      messages !== undefined && messages.messages.length === 1 && page > 1;
+    deleteMessage.mutate(messageId, {
+      onSuccess: () => {
+        if (wasOnlyOnPage) setPage(page - 1);
+      },
+    });
   }
 
-  if (loading) {
+  if (isPending) {
     return <p className="text-muted-foreground">Loading...</p>;
   }
 

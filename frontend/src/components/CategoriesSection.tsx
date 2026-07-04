@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Check, Pencil, Trash2, X } from "lucide-react";
 
@@ -23,25 +22,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ApiError, api } from "@/lib/api";
+import {
+  useCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  useUpdateCategory,
+} from "@/hooks/queries/useCategories";
 import type { Category } from "@/lib/types";
 
 export default function CategoriesSection() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: categories, isPending } = useCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+
   const [newName, setNewName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    api
-      .getCategories()
-      .then(setCategories)
-      .catch(() => toast.error("Failed to load categories"))
-      .finally(() => setLoading(false));
-  }, []);
+  const sortedCategories = useMemo(
+    () => [...(categories ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [categories],
+  );
 
   useEffect(() => {
     if (editingId !== null) {
@@ -49,26 +52,12 @@ export default function CategoriesSection() {
     }
   }, [editingId]);
 
-  async function handleAdd(e: FormEvent) {
+  function handleAdd(e: FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    setSubmitting(true);
-
-    try {
-      const category = await api.createCategory(newName);
-      setCategories((prev) =>
-        [...prev, category].sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setNewName("");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to add category");
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    createCategory.mutate(newName, {
+      onSuccess: () => setNewName(""),
+    });
   }
 
   function startEditing(category: Category) {
@@ -81,38 +70,17 @@ export default function CategoriesSection() {
     setEditingName("");
   }
 
-  async function saveEdit(categoryId: number) {
+  function saveEdit(categoryId: number) {
     if (!editingName.trim()) return;
-
-    try {
-      const updated = await api.updateCategory(categoryId, editingName);
-      setCategories((prev) =>
-        prev
-          .map((c) => (c.id === categoryId ? updated : c))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setEditingId(null);
-      setEditingName("");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to update category");
-      }
-    }
-  }
-
-  async function handleDelete(categoryId: number) {
-    try {
-      await api.deleteCategory(categoryId);
-      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to delete category");
-      }
-    }
+    updateCategory.mutate(
+      { id: categoryId, name: editingName },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditingName("");
+        },
+      },
+    );
   }
 
   return (
@@ -125,7 +93,7 @@ export default function CategoriesSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {loading ? (
+        {isPending ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : (
           <>
@@ -135,18 +103,21 @@ export default function CategoriesSection() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
               />
-              <Button type="submit" disabled={submitting || !newName.trim()}>
-                {submitting ? "Adding..." : "Add"}
+              <Button
+                type="submit"
+                disabled={createCategory.isPending || !newName.trim()}
+              >
+                {createCategory.isPending ? "Adding..." : "Add"}
               </Button>
             </form>
 
-            {categories.length === 0 ? (
+            {sortedCategories.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No categories yet. Add one above.
               </p>
             ) : (
               <ul className="divide-y">
-                {categories.map((category) => (
+                {sortedCategories.map((category) => (
                   <li
                     key={category.id}
                     className="flex items-center gap-2 py-2"
@@ -220,7 +191,9 @@ export default function CategoriesSection() {
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     variant="destructive"
-                                    onClick={() => handleDelete(category.id)}
+                                    onClick={() =>
+                                      deleteCategory.mutate(category.id)
+                                    }
                                   >
                                     Delete
                                   </AlertDialogAction>
