@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import TransactionsSection from "@/components/TransactionsSection";
 import { server } from "@/mocks/server";
-import { renderWithRouter } from "@/test-utils";
+import { renderWithQueryClient } from "@/test-utils";
 
 const sampleTransactions = {
   transactions: [
@@ -93,7 +93,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(screen.getByText("1,500.00")).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(
@@ -143,7 +143,7 @@ describe("TransactionsSection", () => {
       }),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(receivedParams).not.toBeNull();
@@ -167,7 +167,7 @@ describe("TransactionsSection", () => {
       }),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
@@ -200,7 +200,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -235,7 +235,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -274,7 +274,7 @@ describe("TransactionsSection", () => {
       }),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -326,7 +326,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -366,7 +366,7 @@ describe("TransactionsSection", () => {
       }),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -391,7 +391,7 @@ describe("TransactionsSection", () => {
       http.get("/api/transactions", () => HttpResponse.json(pairedTransfers)),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(screen.getAllByText("2,951.00")).toHaveLength(2);
@@ -405,7 +405,7 @@ describe("TransactionsSection", () => {
       http.get("/api/transactions", () => HttpResponse.json(pairedTransfers)),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(screen.getAllByText("2,951.00")).toHaveLength(2);
@@ -422,7 +422,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(screen.getByText("1,500.00")).toBeInTheDocument();
@@ -457,7 +457,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -479,20 +479,28 @@ describe("TransactionsSection", () => {
 
   it("updates a transaction's type via the dropdown", async () => {
     let receivedBody: { type: string } | null = null;
+    let currentType: "expense" | "income" | "transfer" = "expense";
     server.use(
       http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
+        HttpResponse.json({
+          ...sampleTransactions,
+          transactions: [
+            sampleTransactions.transactions[0],
+            { ...sampleTransactions.transactions[1], type: currentType },
+          ],
+        }),
       ),
       http.patch("/api/transactions/2", async ({ request }) => {
         receivedBody = (await request.json()) as { type: string };
+        currentType = receivedBody.type as typeof currentType;
         return HttpResponse.json({
           ...sampleTransactions.transactions[1],
-          type: receivedBody.type,
+          type: currentType,
         });
       }),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -533,7 +541,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await waitFor(() => {
@@ -594,7 +602,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
       expect(screen.getByText("Amex Card")).toBeInTheDocument();
@@ -619,7 +627,7 @@ describe("TransactionsSection", () => {
       ),
     );
 
-    renderWithRouter(<TransactionsSection />);
+    renderWithQueryClient(<TransactionsSection />);
     const user = userEvent.setup();
 
     await user.click(

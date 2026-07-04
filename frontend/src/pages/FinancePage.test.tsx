@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
 import FinancePage from "@/pages/FinancePage";
-import { mockUser, renderWithOutletContext } from "@/test-utils";
+import { mockUser, renderWithQueryClientAndOutletContext } from "@/test-utils";
 
 const mockBanks = [
   {
@@ -28,7 +28,9 @@ const mockBanks = [
 ];
 
 function renderPage() {
-  return renderWithOutletContext(<FinancePage />, { user: mockUser });
+  return renderWithQueryClientAndOutletContext(<FinancePage />, {
+    user: mockUser,
+  });
 }
 
 const emptyTransactions = {

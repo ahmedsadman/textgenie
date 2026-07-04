@@ -18,7 +18,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ApiError, api, type BankUpdate } from "@/lib/api";
+import { useCreateBank, useUpdateBank } from "@/hooks/queries/useBanks";
+import type { BankCreate, BankUpdate } from "@/lib/api";
 import type { Bank } from "@/lib/types";
 
 const FOUR_DIGITS = /^\d{4}$/;
@@ -38,14 +39,9 @@ function onlyDigits(value: string): string {
 interface BankFormDialogProps {
   bank: Bank | null;
   onClose: () => void;
-  onSaved: () => void;
 }
 
-export default function BankFormDialog({
-  bank,
-  onClose,
-  onSaved,
-}: BankFormDialogProps) {
+export default function BankFormDialog({ bank, onClose }: BankFormDialogProps) {
   // The parent mounts this component only while the dialog is open, so
   // useState initializers seed once per open — no reset effect needed.
   const isEdit = bank !== null;
@@ -57,9 +53,12 @@ export default function BankFormDialog({
   const [cardLast4, setCardLast4] = useState(initialLast);
   const [balance, setBalance] = useState(bank?.last_balance ?? "");
   const [balanceTouched, setBalanceTouched] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  const createBank = useCreateBank();
+  const updateBank = useUpdateBank();
+  const submitting = createBank.isPending || updateBank.isPending;
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -71,40 +70,26 @@ export default function BankFormDialog({
       return;
     }
 
-    setSubmitting(true);
-    try {
-      if (isEdit && bank) {
-        const update: BankUpdate = {
-          name,
-          account_type: isCredit ? "credit" : "deposit",
-        };
-        if (isCredit) {
-          update.card_digits = `${cardFirst4}|${cardLast4}`;
-        } else if (balanceTouched && balance.trim() !== "") {
-          update.last_balance = balance;
-        }
-        await api.updateBank(bank.id, update);
-      } else {
-        await api.createBank(
-          isCredit
-            ? {
-                name,
-                account_type: "credit",
-                card_digits: `${cardFirst4}|${cardLast4}`,
-              }
-            : { name },
-        );
+    if (isEdit && bank) {
+      const update: BankUpdate = {
+        name,
+        account_type: isCredit ? "credit" : "deposit",
+      };
+      if (isCredit) {
+        update.card_digits = `${cardFirst4}|${cardLast4}`;
+      } else if (balanceTouched && balance.trim() !== "") {
+        update.last_balance = balance;
       }
-      onSaved();
-      onClose();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        toast.error(error.message);
-      } else {
-        toast.error(isEdit ? "Failed to update bank" : "Failed to add bank");
-      }
-    } finally {
-      setSubmitting(false);
+      updateBank.mutate({ id: bank.id, data: update }, { onSuccess: onClose });
+    } else {
+      const create: BankCreate = isCredit
+        ? {
+            name,
+            account_type: "credit",
+            card_digits: `${cardFirst4}|${cardLast4}`,
+          }
+        : { name };
+      createBank.mutate(create, { onSuccess: onClose });
     }
   }
 
