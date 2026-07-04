@@ -4,11 +4,11 @@ import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
 import LoginPage from "@/pages/LoginPage";
-import { renderWithRouter } from "@/test-utils";
+import { renderWithQueryClient } from "@/test-utils";
 
 describe("LoginPage", () => {
   it("renders email and password fields", () => {
-    renderWithRouter(<LoginPage />);
+    renderWithQueryClient(<LoginPage />);
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(
@@ -17,7 +17,7 @@ describe("LoginPage", () => {
   });
 
   it("renders link to register page", () => {
-    renderWithRouter(<LoginPage />);
+    renderWithQueryClient(<LoginPage />);
     const link = screen.getByRole("link", { name: /register/i });
     expect(link).toHaveAttribute("href", "/register");
   });
@@ -33,7 +33,7 @@ describe("LoginPage", () => {
     );
     const user = userEvent.setup();
 
-    renderWithRouter(<LoginPage />);
+    renderWithQueryClient(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "test@example.com");
     await user.type(screen.getByLabelText(/password/i), "wrongpassword");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
@@ -56,7 +56,7 @@ describe("LoginPage", () => {
     );
     const user = userEvent.setup();
 
-    renderWithRouter(<LoginPage />);
+    renderWithQueryClient(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "test@example.com");
     await user.type(screen.getByLabelText(/password/i), "password123");
     await user.click(screen.getByRole("button", { name: /sign in/i }));

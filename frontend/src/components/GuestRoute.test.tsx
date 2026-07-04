@@ -1,18 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { BrowserRouter } from "react-router-dom";
 
 import GuestRoute from "@/components/GuestRoute";
 import { server } from "@/mocks/server";
-import { mockUser } from "@/test-utils";
+import { mockUser, renderWithQueryClient } from "@/test-utils";
 
 function renderGuestRoute() {
-  return render(
-    <BrowserRouter>
-      <GuestRoute>
-        <div>Guest Content</div>
-      </GuestRoute>
-    </BrowserRouter>,
+  return renderWithQueryClient(
+    <GuestRoute>
+      <div>Guest Content</div>
+    </GuestRoute>,
   );
 }
 

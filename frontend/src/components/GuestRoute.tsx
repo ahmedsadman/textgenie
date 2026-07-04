@@ -1,25 +1,15 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import { api } from "@/lib/api";
+import { useMe } from "@/hooks/queries/useAuth";
 
 export default function GuestRoute({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [checking, setChecking] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const { isPending, isSuccess } = useMe();
 
-  useEffect(() => {
-    api
-      .getMe()
-      .then(() => setAuthenticated(true))
-      .catch(() => setAuthenticated(false))
-      .finally(() => setChecking(false));
-  }, []);
-
-  if (checking) {
+  if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
@@ -27,7 +17,7 @@ export default function GuestRoute({
     );
   }
 
-  if (authenticated) {
+  if (isSuccess) {
     return <Navigate to="/" replace />;
   }
 

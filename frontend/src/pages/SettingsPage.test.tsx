@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
 import SettingsPage from "@/pages/SettingsPage";
-import { renderWithRouter } from "@/test-utils";
+import { renderWithQueryClient } from "@/test-utils";
 
 const mockWebhook = {
   webhook_url: "http://localhost:8001/api/webhook/test-token-123",
@@ -35,14 +35,14 @@ describe("SettingsPage", () => {
   });
 
   it("shows page title and sections", async () => {
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
     await screen.findByText("Settings");
     expect(screen.getByText("Webhook")).toBeInTheDocument();
     expect(screen.getByText("Metadata blacklist")).toBeInTheDocument();
   });
 
   it("displays the webhook URL", async () => {
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
     await screen.findByDisplayValue(mockWebhook.webhook_url);
   });
 
@@ -55,7 +55,7 @@ describe("SettingsPage", () => {
       configurable: true,
     });
 
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
     await screen.findByDisplayValue(mockWebhook.webhook_url);
 
     await user.click(screen.getByLabelText("Copy webhook URL"));
@@ -74,7 +74,7 @@ describe("SettingsPage", () => {
     );
 
     const user = userEvent.setup();
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
 
     await screen.findByDisplayValue(mockWebhook.webhook_url);
 
@@ -89,7 +89,7 @@ describe("SettingsPage", () => {
 
   it("loads and displays existing blacklist senders as chips", async () => {
     mockSettingsHandlers({ blacklist: ["brac", "gp"] });
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
 
     await screen.findByText("brac", { selector: "[data-slot='chip'] span" });
     expect(
@@ -107,7 +107,7 @@ describe("SettingsPage", () => {
     );
 
     const user = userEvent.setup();
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
 
     const input = await screen.findByLabelText("Blacklisted senders");
     await user.type(input, "telco{Enter}");
@@ -126,7 +126,7 @@ describe("SettingsPage", () => {
 
   it("disables Save until the blacklist changes", async () => {
     mockSettingsHandlers({ blacklist: ["existing"] });
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
     await screen.findByText("existing", {
       selector: "[data-slot='chip'] span",
     });
@@ -141,7 +141,7 @@ describe("SettingsPage", () => {
     });
 
     const user = userEvent.setup();
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
 
     const input = await screen.findByLabelText("Blacklisted senders");
     await user.click(input);
@@ -167,7 +167,7 @@ describe("SettingsPage", () => {
     mockSettingsHandlers({ blacklist: [], senders: ["BRACBANK"] });
 
     const user = userEvent.setup();
-    renderWithRouter(<SettingsPage />);
+    renderWithQueryClient(<SettingsPage />);
 
     const input = await screen.findByLabelText("Blacklisted senders");
     await user.click(input);
