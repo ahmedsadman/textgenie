@@ -474,7 +474,7 @@ def test_card_sms_routes_to_credit_bank_over_llm_pick(client, run_message_parse)
     assert len(txns) == 1
     assert txns[0]["bank_name"] == "BRAC Credit Card"
     assert txns[0]["type"] == "expense"
-    assert txns[0]["amount"] == "200.00"
+    assert txns[0]["normalized_amount"] == "200.00"
 
 
 def test_card_match_various_masking_formats(client, run_message_parse):
@@ -510,11 +510,150 @@ def test_card_match_various_masking_formats(client, run_message_parse):
     txns = client.get("/api/transactions").json()["transactions"]
     assert len(txns) == 4
     on_credit = [
-        t for t in txns if t["bank_id"] == credit_id and t["amount"] == "10.00"
+        t
+        for t in txns
+        if t["bank_id"] == credit_id and t["normalized_amount"] == "10.00"
     ]
     on_deposit = [t for t in txns if t["bank_id"] != credit_id]
     assert len(on_credit) == 3
     assert len(on_deposit) == 1  # the "PIN 3711" one — bare last4 did not match
+
+
+# --- Currency: foreign-currency messages skip balance updates ---
+
+
+def _txn_provider_with_currency(
+    bank, balance, amount, txn_type, original_currency, original_amount=None
+):
+    md = MetadataResult(
+        bank=bank,
+        balance=balance,
+        amount=amount,
+        transaction_type=txn_type,
+        original_currency=original_currency,
+        original_amount=original_amount,
+    )
+    return make_mock_provider(category="transaction", metadata=md)
+
+
+def test_foreign_currency_message_skips_balance_update(client, run_message_parse):
+    """User pref BDT; SMS extracted with original_currency=USD -> balance untouched."""
+    register_and_login(client)
+    bank_id = _create_bank(client, "BRAC").json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="BRAC", content="POS USD 100 Balance USD 500")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    # Amount converted to normalized BDT (12000) with USD 100 as the source.
+    provider = _txn_provider_with_currency(
+        "BRAC",
+        Decimal("60000"),
+        Decimal("12000"),
+        "expense",
+        "USD",
+        original_amount=Decimal("100"),
+    )
+    run_message_parse(message_id, provider)
+
+    bank = _get_bank(client, bank_id)
+    assert bank["last_balance"] is None  # foreign currency -> skipped
+
+    # The transaction is recorded with both the normalized value and the source.
+    txns = client.get("/api/transactions").json()["transactions"]
+    assert len(txns) == 1
+    assert txns[0]["normalized_amount"] == "12000.00"
+    assert txns[0]["normalized_currency"] == "BDT"
+    assert txns[0]["original_amount"] == "100.00"
+    assert txns[0]["original_currency"] == "USD"
+
+
+def test_matching_currency_message_updates_balance(client, run_message_parse):
+    """Original currency matches user pref -> balance updated as usual."""
+    register_and_login(client)
+    bank_id = _create_bank(client, "BRAC").json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="BRAC", content="Balance: 1500 BDT")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = _txn_provider_with_currency(
+        "BRAC",
+        Decimal("1500"),
+        Decimal("50"),
+        "expense",
+        "BDT",
+        original_amount=Decimal("50"),
+    )
+    run_message_parse(message_id, provider)
+
+    assert _get_bank(client, bank_id)["last_balance"] == "1500.00"
+
+
+def test_balance_updates_when_pref_matches_source(client, run_message_parse):
+    """User switched to USD; a USD SMS refreshes the balance."""
+    register_and_login(client)
+    client.put("/api/settings/currency", json={"currency": "USD"})
+    bank_id = _create_bank(client, "BRAC").json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="BRAC", content="Balance USD 500")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = _txn_provider_with_currency(
+        "BRAC",
+        Decimal("500"),
+        Decimal("100"),
+        "expense",
+        "USD",
+        original_amount=Decimal("100"),
+    )
+    run_message_parse(message_id, provider)
+
+    assert _get_bank(client, bank_id)["last_balance"] == "500.00"
+
+
+def test_transaction_currency_reflects_user_preference(client, run_message_parse):
+    """The stored tx.normalized_currency is a snapshot of the user's pref."""
+    register_and_login(client)
+    client.put("/api/settings/currency", json={"currency": "EUR"})
+    _create_bank(client, "SocGen")
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="SocGen", content="Débit 50 EUR")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = _txn_provider_with_currency(
+        "SocGen",
+        Decimal("450"),
+        Decimal("50"),
+        "expense",
+        "EUR",
+        original_amount=Decimal("50"),
+    )
+    run_message_parse(message_id, provider)
+
+    txns = client.get("/api/transactions").json()["transactions"]
+    assert txns[0]["normalized_currency"] == "EUR"
+    assert txns[0]["normalized_amount"] == "50.00"
+    assert txns[0]["original_amount"] == "50.00"
+    assert txns[0]["original_currency"] == "EUR"
+
+
+def test_missing_original_currency_treats_as_matching(client, run_message_parse):
+    """Backwards-compat: when the LLM does not tag original_currency (e.g. old
+    prompt or ambiguous message), don't gate the balance update on it."""
+    register_and_login(client)
+    bank_id = _create_bank(client, "BRAC").json()["id"]
+    token = get_webhook_token(client)
+
+    create_message(client, token, sender="BRAC", content="Balance: 700")
+    message_id = client.get("/api/messages").json()["messages"][0]["id"]
+
+    provider = _txn_provider_with_currency("BRAC", Decimal("700"), None, None, None)
+    run_message_parse(message_id, provider)
+
+    assert _get_bank(client, bank_id)["last_balance"] == "700.00"
 
 
 def test_deposit_bank_still_stores_balance(client, run_message_parse):

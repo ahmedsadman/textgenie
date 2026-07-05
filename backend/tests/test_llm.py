@@ -108,51 +108,126 @@ def test_categorize_propagates_non_retryable_error(make_provider):
 
 
 def test_extract_metadata_bank_and_balance(make_provider):
-    provider = make_provider('{"bank": "BRAC Bank PLC", "balance": 2000}')
-    result = provider.extract_metadata(
-        "Balance: 2000 BDT", "BRACBANK", ["BRAC Bank PLC"]
+    provider = make_provider(
+        '{"bank": "BRAC Bank PLC", "balance": 2000, "original_currency": "BDT"}'
     )
-    assert result == MetadataResult(bank="BRAC Bank PLC", balance=Decimal("2000"))
+    result = provider.extract_metadata(
+        "Balance: 2000 BDT", "BRACBANK", ["BRAC Bank PLC"], "BDT"
+    )
+    assert result == MetadataResult(
+        bank="BRAC Bank PLC", balance=Decimal("2000"), original_currency="BDT"
+    )
 
 
 def test_extract_metadata_bank_present_balance_null(make_provider):
     provider = make_provider('{"bank": "BRAC", "balance": null}')
-    result = provider.extract_metadata("Some transaction", "BRAC", ["BRAC"])
+    result = provider.extract_metadata("Some transaction", "BRAC", ["BRAC"], "BDT")
     assert result == MetadataResult(bank="BRAC")
 
 
 def test_extract_metadata_balance_present_bank_null_is_orphan_stripped(make_provider):
     provider = make_provider('{"bank": null, "balance": 500}')
-    result = provider.extract_metadata("Balance: 500", "X", ["BRAC Bank"])
+    result = provider.extract_metadata("Balance: 500", "X", ["BRAC Bank"], "BDT")
     assert result == MetadataResult()
 
 
 def test_extract_metadata_balance_float(make_provider):
-    provider = make_provider('{"bank": "BRAC", "balance": 100.25}')
-    result = provider.extract_metadata("Balance: 100.25", "BRAC", ["BRAC"])
+    provider = make_provider(
+        '{"bank": "BRAC", "balance": 100.25, "original_currency": "BDT"}'
+    )
+    result = provider.extract_metadata("Balance: 100.25", "BRAC", ["BRAC"], "BDT")
     assert result.balance == Decimal("100.25")
 
 
 def test_extract_metadata_case_insensitive_bank_match(make_provider):
-    provider = make_provider('{"bank": "brac bank plc", "balance": 100}')
-    result = provider.extract_metadata("x", "x", ["BRAC Bank PLC"])
+    provider = make_provider(
+        '{"bank": "brac bank plc", "balance": 100, "original_currency": "BDT"}'
+    )
+    result = provider.extract_metadata("x", "x", ["BRAC Bank PLC"], "BDT")
     assert result.bank == "BRAC Bank PLC"
 
 
 def test_extract_metadata_bank_not_in_list(make_provider):
-    provider = make_provider('{"bank": "Some Other Bank", "balance": 100}')
-    assert provider.extract_metadata("x", "x", ["BRAC Bank PLC"]) == MetadataResult()
+    provider = make_provider(
+        '{"bank": "Some Other Bank", "balance": 100, "original_currency": "BDT"}'
+    )
+    result = provider.extract_metadata("x", "x", ["BRAC Bank PLC"], "BDT")
+    assert result == MetadataResult()
 
 
 def test_extract_metadata_short_circuits_when_no_banks(make_provider):
     provider = make_provider()
-    assert provider.extract_metadata("x", "x", []) == MetadataResult()
+    assert provider.extract_metadata("x", "x", [], "BDT") == MetadataResult()
     provider.client.models.generate_content.assert_not_called()
 
 
 def test_extract_metadata_returns_empty_for_empty_response(make_provider):
     provider = make_provider(None)
-    assert provider.extract_metadata("x", "x", ["BRAC"]) == MetadataResult()
+    assert provider.extract_metadata("x", "x", ["BRAC"], "BDT") == MetadataResult()
+
+
+def test_extract_metadata_returns_original_currency_and_amount(make_provider):
+    provider = make_provider(
+        '{"bank": "EBL", "balance": 60000, "amount": 12000, '
+        '"original_amount": 100, '
+        '"transaction_type": "expense", "original_currency": "usd"}'
+    )
+    result = provider.extract_metadata("Purchase USD 100", "EBL", ["EBL"], "BDT")
+    assert result == MetadataResult(
+        bank="EBL",
+        balance=Decimal("60000"),
+        amount=Decimal("12000"),
+        transaction_type="expense",
+        original_currency="USD",
+        original_amount=Decimal("100"),
+    )
+
+
+def test_extract_metadata_drops_original_amount_when_amount_missing(make_provider):
+    """If `amount` is null (invalid pair), `original_amount` is also cleared."""
+    provider = make_provider(
+        '{"bank": "EBL", "balance": 60000, "amount": null, '
+        '"original_amount": 100, '
+        '"transaction_type": null, "original_currency": "USD"}'
+    )
+    result = provider.extract_metadata("balance only msg", "EBL", ["EBL"], "BDT")
+    assert result.amount is None
+    assert result.original_amount is None
+    # balance survives — original_currency stays because balance is present.
+    assert result.balance == Decimal("60000")
+    assert result.original_currency == "USD"
+
+
+def test_extract_metadata_original_amount_same_as_amount_when_no_conversion(
+    make_provider,
+):
+    provider = make_provider(
+        '{"bank": "BRAC", "balance": 2000, "amount": 50, '
+        '"original_amount": 50, '
+        '"transaction_type": "expense", "original_currency": "BDT"}'
+    )
+    result = provider.extract_metadata("debit 50 BDT", "BRAC", ["BRAC"], "BDT")
+    assert result.amount == Decimal("50")
+    assert result.original_amount == Decimal("50")
+
+
+def test_extract_metadata_drops_currency_when_no_amount_or_balance(make_provider):
+    provider = make_provider(
+        '{"bank": "EBL", "balance": null, "amount": null, '
+        '"original_amount": null, '
+        '"transaction_type": null, "original_currency": "USD"}'
+    )
+    result = provider.extract_metadata("statement ready", "EBL", ["EBL"], "BDT")
+    assert result.original_currency is None
+    assert result.original_amount is None
+
+
+def test_extract_metadata_invalid_currency_string_becomes_none(make_provider):
+    provider = make_provider(
+        '{"bank": "EBL", "balance": 100, "original_currency": "dollars"}'
+    )
+    result = provider.extract_metadata("x", "x", ["EBL"], "BDT")
+    assert result.original_currency is None
 
 
 # --- Prompt builders ---
@@ -174,7 +249,7 @@ def test_categorize_prompt_contains_categories_and_message():
 
 def test_metadata_prompt_contains_banks_and_message():
     prompt = _ConcreteProvider().build_metadata_prompt(
-        "Balance: 2000", "BRACBANK", ["BRAC Bank PLC", "EBL"]
+        "Balance: 2000", "BRACBANK", ["BRAC Bank PLC", "EBL"], "BDT"
     )
     assert isinstance(prompt, ParsePrompt)
     assert "Banks:" in prompt.contents
@@ -182,9 +257,20 @@ def test_metadata_prompt_contains_banks_and_message():
     assert '"EBL"' in prompt.contents
     assert "BRACBANK" in prompt.contents
     assert "Balance: 2000" in prompt.contents
+    assert "BDT" in prompt.contents
     assert '"bank"' in prompt.system_instruction
     assert '"balance"' in prompt.system_instruction
+    assert '"original_currency"' in prompt.system_instruction
+    assert '"original_amount"' in prompt.system_instruction
     assert '"category"' not in prompt.system_instruction
+
+
+def test_metadata_prompt_includes_normalized_currency():
+    prompt = _ConcreteProvider().build_metadata_prompt(
+        "Balance: 100 USD", "EBL", ["EBL"], "USD"
+    )
+    assert "USD" in prompt.contents
+    assert "Normalized currency: USD" in prompt.contents
 
 
 # --- Retry / fallthrough (exercises shared _generate_with_fallback) ---
@@ -267,10 +353,17 @@ def test_backoff_delay_grows_exponentially(make_provider, no_sleep):
 
 def test_extract_metadata_uses_same_retry_logic(make_provider, no_sleep):
     provider = make_provider(
-        side_effect=[_api_error(429), _make_response('{"bank": "BRAC", "balance": 50}')]
+        side_effect=[
+            _api_error(429),
+            _make_response(
+                '{"bank": "BRAC", "balance": 50, "original_currency": "BDT"}'
+            ),
+        ]
     )
-    result = provider.extract_metadata("x", "x", ["BRAC"])
-    assert result == MetadataResult(bank="BRAC", balance=Decimal("50"))
+    result = provider.extract_metadata("x", "x", ["BRAC"], "BDT")
+    assert result == MetadataResult(
+        bank="BRAC", balance=Decimal("50"), original_currency="BDT"
+    )
     assert _called_models(provider) == [PRIMARY, FALLBACK]
 
 
@@ -311,7 +404,9 @@ def test_model_stats_includes_fallback(make_provider, no_sleep, caplog):
 
 
 def test_model_stats_counts_metadata_calls_too(make_provider, caplog):
-    provider = make_provider('{"bank": "BRAC", "balance": 100}')
+    provider = make_provider(
+        '{"bank": "BRAC", "balance": 100, "original_currency": "BDT"}'
+    )
     for _ in range(10):
-        provider.extract_metadata("x", "x", ["BRAC"])
+        provider.extract_metadata("x", "x", ["BRAC"], "BDT")
     assert "LLM model stats (total=10)" in caplog.text

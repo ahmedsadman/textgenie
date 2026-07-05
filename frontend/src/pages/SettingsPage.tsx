@@ -25,8 +25,24 @@ import {
 } from "@/components/ui/card";
 import { ChipInput } from "@/components/ui/chip-input";
 import { Input } from "@/components/ui/input";
+import { Select, type SelectOption } from "@/components/ui/select";
+import { useCurrency, useUpdateCurrency } from "@/hooks/queries/useCurrency";
 import { ApiError, api } from "@/lib/api";
-import type { WebhookSettings } from "@/lib/types";
+import {
+  CURRENCY_OPTIONS,
+  type Currency,
+  type WebhookSettings,
+} from "@/lib/types";
+
+const CURRENCY_LABELS: Record<Currency, string> = {
+  BDT: "BDT — Bangladeshi Taka",
+  USD: "USD — US Dollar",
+  EUR: "EUR — Euro",
+};
+
+const CURRENCY_SELECT_OPTIONS: SelectOption<Currency>[] = CURRENCY_OPTIONS.map(
+  (c) => ({ value: c, label: CURRENCY_LABELS[c] }),
+);
 
 export default function SettingsPage() {
   const [webhook, setWebhook] = useState<WebhookSettings | null>(null);
@@ -40,6 +56,10 @@ export default function SettingsPage() {
   const [savingBlacklist, setSavingBlacklist] = useState(false);
 
   const [loading, setLoading] = useState(true);
+
+  const { data: currencyData, isPending: currencyPending } = useCurrency();
+  const updateCurrency = useUpdateCurrency();
+  const [pendingCurrency, setPendingCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +131,21 @@ export default function SettingsPage() {
     } finally {
       setSavingBlacklist(false);
     }
+  }
+
+  const savedCurrency: Currency = currencyData?.currency ?? "BDT";
+  const selectedCurrency: Currency = pendingCurrency ?? savedCurrency;
+  const currencyDirty =
+    pendingCurrency !== null && pendingCurrency !== savedCurrency;
+
+  function handleSaveCurrency() {
+    if (!currencyDirty || pendingCurrency === null) return;
+    updateCurrency.mutate(pendingCurrency, {
+      onSuccess: (data) => {
+        setPendingCurrency(null);
+        toast.success(`Currency saved as ${data.currency}`);
+      },
+    });
   }
 
   const blacklistDirty =
@@ -214,6 +249,45 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-lg">Currency</CardTitle>
+          <CardDescription>
+            The currency all transactions are normalized to. Changes only affect
+            future records — existing transactions keep their original currency.
+            Bank balances are cleared when the currency changes and refresh from
+            the next matching-currency SMS.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-3">
+          {currencyPending ? (
+            <span className="text-sm text-muted-foreground">Loading...</span>
+          ) : (
+            <Select<Currency>
+              value={selectedCurrency}
+              onChange={setPendingCurrency}
+              options={CURRENCY_SELECT_OPTIONS}
+              ariaLabel="Normalized currency"
+              disabled={updateCurrency.isPending}
+            />
+          )}
+          <Button
+            onClick={handleSaveCurrency}
+            disabled={!currencyDirty || updateCurrency.isPending}
+            aria-label="Save currency"
+          >
+            {updateCurrency.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-lg">Metadata blacklist</CardTitle>
           <CardDescription>
             Messages from these senders will still be categorized, but will not
@@ -235,6 +309,7 @@ export default function SettingsPage() {
             <Button
               onClick={handleSaveBlacklist}
               disabled={savingBlacklist || !blacklistDirty}
+              aria-label="Save blacklist"
             >
               {savingBlacklist ? (
                 <>

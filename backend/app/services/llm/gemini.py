@@ -83,6 +83,13 @@ def _parse_transaction_type(raw: str | None) -> str | None:
     return value if value in _VALID_TRANSACTION_TYPES else None
 
 
+def _parse_currency(raw: str | None) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip().upper()
+    return value if len(value) == 3 and value.isalpha() else None
+
+
 class GeminiProvider(LLMProvider):
     MODELS = ("gemini-2.5-flash-lite", "gemini-3.1-flash-lite")
     MAX_CYCLES = 3
@@ -101,11 +108,15 @@ class GeminiProvider(LLMProvider):
         return self._parse_categorize_response(response_text, categories)
 
     def extract_metadata(
-        self, content: str, sender: str, banks: list[str]
+        self,
+        content: str,
+        sender: str,
+        banks: list[str],
+        normalized_currency: str,
     ) -> MetadataResult:
         if not banks:
             return MetadataResult()
-        prompt = self.build_metadata_prompt(content, sender, banks)
+        prompt = self.build_metadata_prompt(content, sender, banks, normalized_currency)
         response_text = self._generate_with_fallback(prompt)
         return self._parse_metadata_response(response_text, banks)
 
@@ -184,26 +195,39 @@ class GeminiProvider(LLMProvider):
         bank = _match_name(data.get("bank"), banks)
         balance = _parse_balance(data.get("balance")) if bank else None
         amount = _parse_balance(data.get("amount")) if bank else None
+        original_amount = _parse_balance(data.get("original_amount")) if bank else None
         transaction_type = (
             _parse_transaction_type(data.get("transaction_type")) if bank else None
         )
+        original_currency = _parse_currency(data.get("original_currency"))
 
-        # amount and transaction_type must both be present to be usable.
+        # amount / original_amount / transaction_type must all three be present
+        # to be usable — mirror the "amount and transaction_type paired" rule.
         if amount is None or transaction_type is None:
             amount = None
+            original_amount = None
             transaction_type = None
+
+        # original_currency is only meaningful alongside an amount or balance.
+        if amount is None and balance is None:
+            original_currency = None
 
         if bank:
             logger.info(
-                "LLM identified bank '%s' with balance %s, amount %s, type %s",
+                "LLM identified bank '%s' with balance %s, amount %s, "
+                "original_amount %s, type %s, original_currency %s",
                 bank,
                 balance,
                 amount,
+                original_amount,
                 transaction_type,
+                original_currency,
             )
         return MetadataResult(
             bank=bank,
             balance=balance,
             amount=amount,
             transaction_type=transaction_type,
+            original_currency=original_currency,
+            original_amount=original_amount,
         )

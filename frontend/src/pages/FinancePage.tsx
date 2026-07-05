@@ -25,25 +25,21 @@ import {
 import BankFormDialog from "@/components/BankFormDialog";
 import TransactionsSection from "@/components/TransactionsSection";
 import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
-import type { Bank } from "@/lib/types";
+import { useCurrency } from "@/hooks/queries/useCurrency";
+import { formatAmount } from "@/lib/currency";
+import type { Bank, Currency } from "@/lib/types";
 
-function formatBalance(balance: string | null): string {
+function formatBalance(balance: string | null, currency: Currency): string {
   if (balance === null) return "No balance yet";
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(balance));
+  return formatAmount(balance, currency);
 }
 
-function formatTotal(banks: Bank[]): string {
+function formatTotal(banks: Bank[], currency: Currency): string {
   const total = banks.reduce(
     (acc, b) => acc + (b.last_balance === null ? 0 : Number(b.last_balance)),
     0,
   );
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(total);
+  return formatAmount(total, currency);
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -69,9 +65,12 @@ function creditCardLast4(cardDigits: string | null): string | null {
 
 export default function FinancePage() {
   const { data: banks, isPending } = useBanks();
+  const { data: currencySettings } = useCurrency();
   const deleteBank = useDeleteBank();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Bank | null>(null);
+
+  const currency: Currency = currencySettings?.currency ?? "BDT";
 
   function openAddDialog() {
     setEditingBank(null);
@@ -97,7 +96,7 @@ export default function FinancePage() {
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-semibold tabular-nums">
-            {banks.length === 0 ? "—" : formatTotal(banks)}
+            {banks.length === 0 ? "—" : formatTotal(banks, currency)}
           </p>
         </CardContent>
       </Card>
@@ -187,7 +186,7 @@ export default function FinancePage() {
                               : "font-semibold"
                           }`}
                         >
-                          {formatBalance(bank.last_balance)}
+                          {formatBalance(bank.last_balance, currency)}
                         </p>
                         {bank.last_balance_at && (
                           <p className="mt-1 text-xs text-muted-foreground">

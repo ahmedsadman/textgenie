@@ -58,7 +58,7 @@ describe("FinancePage", () => {
     });
     expect(screen.getByText("EBL")).toBeInTheDocument();
     // 1,500.00 appears twice: once as the bank's balance, once as the total.
-    expect(screen.getAllByText("1,500.00")).toHaveLength(2);
+    expect(screen.getAllByText(/1,500\.00\sBDT/)).toHaveLength(2);
     expect(screen.getByText(/total balance/i)).toBeInTheDocument();
   });
 
@@ -222,9 +222,9 @@ describe("FinancePage", () => {
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("2,000.00")).toBeInTheDocument();
+      expect(screen.getByText("2,000.00 BDT")).toBeInTheDocument();
     });
-    expect(screen.getByText("500.00")).toBeInTheDocument();
+    expect(screen.getByText("500.00 BDT")).toBeInTheDocument();
   });
 
   it("cancels the modal without saving", async () => {
@@ -314,7 +314,7 @@ describe("FinancePage", () => {
     expect(screen.getByText(/•••• 3711/)).toBeInTheDocument();
     expect(screen.getByText(/not counted in total/i)).toBeInTheDocument();
     // Only the deposit bank's balance appears (once as its balance, once in total).
-    expect(screen.getAllByText("1,500.00")).toHaveLength(2);
+    expect(screen.getAllByText(/1,500\.00\sBDT/)).toHaveLength(2);
   });
 
   it("creates a credit account with card digits via the modal", async () => {

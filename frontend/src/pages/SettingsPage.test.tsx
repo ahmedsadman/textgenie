@@ -116,7 +116,7 @@ describe("SettingsPage", () => {
       screen.getByText("telco", { selector: "[data-slot='chip'] span" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save blacklist" }));
 
     await waitFor(() => {
       expect(receivedBody).toEqual({ senders: ["telco"] });
@@ -131,7 +131,9 @@ describe("SettingsPage", () => {
       selector: "[data-slot='chip'] span",
     });
 
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save blacklist" }),
+    ).toBeDisabled();
   });
 
   it("offers recent senders as autocomplete suggestions", async () => {
@@ -177,5 +179,66 @@ describe("SettingsPage", () => {
     expect(
       screen.getByText("BRACBANK", { selector: "[data-slot='chip'] span" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the current normalized currency", async () => {
+    server.use(
+      http.get("/api/settings/currency", () =>
+        HttpResponse.json({ currency: "USD" }),
+      ),
+    );
+
+    renderWithQueryClient(<SettingsPage />);
+
+    await screen.findByRole("button", { name: /normalized currency/i });
+    expect(
+      screen.getByRole("button", { name: /normalized currency/i }),
+    ).toHaveTextContent(/USD/);
+  });
+
+  it("saves a new currency and shows a success toast", async () => {
+    let receivedBody: { currency: string } | null = null;
+    server.use(
+      http.get("/api/settings/currency", () =>
+        HttpResponse.json({ currency: "BDT" }),
+      ),
+      http.put("/api/settings/currency", async ({ request }) => {
+        receivedBody = (await request.json()) as { currency: string };
+        return HttpResponse.json({ currency: receivedBody.currency });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<SettingsPage />);
+
+    const trigger = await screen.findByRole("button", {
+      name: /normalized currency/i,
+    });
+    await user.click(trigger);
+    await user.click(
+      await screen.findByRole("button", { name: /USD.*US Dollar/i }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save currency" }));
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ currency: "USD" });
+    });
+    await screen.findByText(/currency saved as usd/i);
+  });
+
+  it("disables the currency Save button until the value changes", async () => {
+    server.use(
+      http.get("/api/settings/currency", () =>
+        HttpResponse.json({ currency: "BDT" }),
+      ),
+    );
+
+    renderWithQueryClient(<SettingsPage />);
+    await screen.findByRole("button", { name: /normalized currency/i });
+
+    expect(
+      screen.getByRole("button", { name: "Save currency" }),
+    ).toBeDisabled();
   });
 });

@@ -4,15 +4,19 @@ from sqlalchemy.orm import Session as DBSession
 from app.database import get_db
 from app.models import User
 from app.schemas import (
+    CurrencySettingsResponse,
+    CurrencySettingsUpdateRequest,
     MetadataBlacklistResponse,
     MetadataBlacklistUpdateRequest,
     WebhookSettingsResponse,
 )
 from app.services.auth import get_current_user
 from app.services.settings import (
+    get_currency,
     get_metadata_blacklist,
     get_webhook_settings,
     regenerate_webhook_token,
+    update_currency,
     update_metadata_blacklist,
 )
 
@@ -47,3 +51,18 @@ def update_blacklist(
 ):
     senders = update_metadata_blacklist(db, user, payload.senders)
     return MetadataBlacklistResponse(senders=senders)
+
+
+@router.get("/currency", response_model=CurrencySettingsResponse)
+def get_currency_setting(user: User = Depends(get_current_user)):
+    return CurrencySettingsResponse(currency=get_currency(user))
+
+
+@router.put("/currency", response_model=CurrencySettingsResponse)
+def update_currency_setting(
+    payload: CurrencySettingsUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    currency = update_currency(db, user, payload.currency)
+    return CurrencySettingsResponse(currency=currency)

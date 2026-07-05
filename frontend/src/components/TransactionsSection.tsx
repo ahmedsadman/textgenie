@@ -25,6 +25,7 @@ import {
   useUpdateTransactionType,
 } from "@/hooks/queries/useTransactions";
 import { api } from "@/lib/api";
+import { formatAmount, formatNumeric } from "@/lib/currency";
 import { resolveDateRange, type DateRangeSelection } from "@/lib/dateRange";
 import type { Message, Transaction, TransactionType } from "@/lib/types";
 import { cn, formatMessageDateTime } from "@/lib/utils";
@@ -57,13 +58,6 @@ const TYPE_OPTIONS: SelectOption<TransactionType>[] = [
     icon: <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />,
   },
 ];
-
-function formatAmount(raw: string): string {
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(raw));
-}
 
 function amountSign(type: TransactionType): string {
   if (type === "income") return "+";
@@ -192,7 +186,7 @@ export default function TransactionsSection() {
               Income
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {formatAmount(totals.income)}
+              {formatNumeric(totals.income)}
             </div>
           </div>
           <div className="rounded-lg border p-3">
@@ -200,7 +194,7 @@ export default function TransactionsSection() {
               Expense
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-              {formatAmount(totals.expense)}
+              {formatNumeric(totals.expense)}
             </div>
           </div>
         </div>
@@ -235,7 +229,8 @@ export default function TransactionsSection() {
                     tabIndex={0}
                     aria-expanded={isExpanded}
                     aria-label={`Toggle message for ${tx.sender} ${sign}${formatAmount(
-                      tx.amount,
+                      tx.normalized_amount,
+                      tx.normalized_currency,
                     )} on ${formatMessageDateTime(tx.date)}`}
                     onClick={() => toggleExpanded(tx)}
                     onKeyDown={(e) => {
@@ -290,7 +285,10 @@ export default function TransactionsSection() {
                       )}
                     >
                       {sign}
-                      {formatAmount(tx.amount)}
+                      {formatAmount(
+                        tx.normalized_amount,
+                        tx.normalized_currency,
+                      )}
                     </div>
                     <Select<TransactionType>
                       value={tx.type}

@@ -62,7 +62,7 @@ def test_webhook_creates_transaction_row(client, run_message_parse, db):
     assert len(rows) == 1
     row = rows[0]
     assert row.bank_id == bank_id
-    assert row.amount == Decimal("50.00")
+    assert row.normalized_amount == Decimal("50.00")
     assert row.type == "expense"
     assert row.date is not None
 
@@ -120,7 +120,7 @@ def test_webhook_records_transaction_when_bank_unmatched(client, run_message_par
     rows = db.query(Transaction).all()
     assert len(rows) == 1
     assert rows[0].bank_id is None
-    assert rows[0].amount == Decimal("25.00")
+    assert rows[0].normalized_amount == Decimal("25.00")
     assert rows[0].type == "income"
 
 
@@ -350,7 +350,7 @@ def test_get_transactions_date_filter(client, run_message_parse):
         },
     ).json()
     assert body["total"] == 1
-    assert body["transactions"][0]["amount"] == "20.00"
+    assert body["transactions"][0]["normalized_amount"] == "20.00"
     assert body["totals"] == {"income": "0.00", "expense": "20.00"}
 
 

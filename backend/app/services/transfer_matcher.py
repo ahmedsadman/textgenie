@@ -55,8 +55,8 @@ def find_and_pair_transfer_counterpart(
         )
         return None
 
-    lower = transfer_tx.amount - TRANSFER_AMOUNT_TOLERANCE
-    upper = transfer_tx.amount + TRANSFER_AMOUNT_TOLERANCE
+    lower = transfer_tx.normalized_amount - TRANSFER_AMOUNT_TOLERANCE
+    upper = transfer_tx.normalized_amount + TRANSFER_AMOUNT_TOLERANCE
     window_start = transfer_tx.date - TRANSFER_MATCH_WINDOW
     window_end = transfer_tx.date + TRANSFER_MATCH_WINDOW
 
@@ -67,8 +67,8 @@ def find_and_pair_transfer_counterpart(
             Transaction.id != transfer_tx.id,
             Transaction.type == "expense",
             Transaction.paired_with_id.is_(None),
-            Transaction.amount >= lower,
-            Transaction.amount <= upper,
+            Transaction.normalized_amount >= lower,
+            Transaction.normalized_amount <= upper,
             Transaction.date >= window_start,
             Transaction.date <= window_end,
         )
@@ -111,7 +111,7 @@ def find_and_pair_transfer_counterpart(
         transfer_tx.id,
         winner.id,
         closest_delta,
-        abs(transfer_tx.amount - winner.amount),
+        abs(transfer_tx.normalized_amount - winner.normalized_amount),
     )
     return winner
 
