@@ -1,5 +1,6 @@
 export type DateRangePresetKey =
   | "last_7_days"
+  | "this_month"
   | "last_month"
   | "last_3_months"
   | "last_year"
@@ -18,6 +19,7 @@ export interface DateRangePreset {
 
 export const DATE_RANGE_PRESETS: DateRangePreset[] = [
   { key: "last_7_days", label: "Last 7 days" },
+  { key: "this_month", label: "This month" },
   { key: "last_month", label: "Last month" },
   { key: "last_3_months", label: "Last 3 months" },
   { key: "last_year", label: "Last year" },
@@ -60,6 +62,11 @@ export function resolveDateRange(value: DateRangeSelection): {
       return { from: null, to: null };
     case "last_7_days":
       return rangeFromDays(now, 7);
+    case "this_month": {
+      const from = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+      const to = endOfDay(now);
+      return { from: from.toISOString(), to: to.toISOString() };
+    }
     case "last_month":
       return rangeFromDays(now, 30);
     case "last_3_months":
