@@ -4,7 +4,8 @@ TextGenie subscribes to your phone's SMS and helps you categorize messages, iden
 
 ## Coding Convention
 - Follow clean coding practices
-- Prefer DRY (Don't Repeat Yourself). Extract shared methods and utilities in common files whenever applicable 
+- Prefer DRY (Don't Repeat Yourself). Extract shared methods and utilities in common files whenever applicable
+- Prefer KISS (Keep it simple, stupid)
 
 ## Testing
 
