@@ -16,7 +16,10 @@ const sampleTransactions = {
       bank_name: "BRAC Bank",
       bank_account_type: "deposit" as const,
       sender: "BRAC",
-      amount: "1500.00",
+      normalized_amount: "1500.00",
+      normalized_currency: "BDT" as const,
+      original_amount: null,
+      original_currency: null,
       type: "income" as const,
       date: "2026-06-20T10:00:00Z",
       paired_with_id: null,
@@ -29,7 +32,10 @@ const sampleTransactions = {
       bank_name: "BRAC Bank",
       bank_account_type: "deposit" as const,
       sender: "BRAC",
-      amount: "250.00",
+      normalized_amount: "250.00",
+      normalized_currency: "BDT" as const,
+      original_amount: null,
+      original_currency: null,
       type: "expense" as const,
       date: "2026-06-19T10:00:00Z",
       paired_with_id: null,
@@ -51,7 +57,10 @@ const pairedTransfers = {
       bank_name: "MTB",
       bank_account_type: "deposit" as const,
       sender: "MTB",
-      amount: "2951.00",
+      normalized_amount: "2951.00",
+      normalized_currency: "BDT" as const,
+      original_amount: null,
+      original_currency: null,
       type: "transfer" as const,
       date: "2026-06-20T10:00:00Z",
       paired_with_id: 101,
@@ -64,7 +73,10 @@ const pairedTransfers = {
       bank_name: "City Bank",
       bank_account_type: "deposit" as const,
       sender: "CITY",
-      amount: "2951.00",
+      normalized_amount: "2951.00",
+      normalized_currency: "BDT" as const,
+      original_amount: null,
+      original_currency: null,
       type: "transfer" as const,
       date: "2026-06-20T10:02:00Z",
       paired_with_id: 100,
@@ -96,14 +108,13 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
     // both sender rows render
     expect(screen.getAllByText("BRAC")).toHaveLength(2);
     // expense rendered with leading minus
-    expect(screen.getByText(/−250\.00/)).toBeInTheDocument();
-    // income rendered with leading plus
-    expect(screen.getByText(/\+1,500\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
+    // (leading-plus income asserted above)
   });
 
   it("shows empty state when there are no transactions", async () => {
@@ -204,7 +215,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
 
     const firstRow = screen.getAllByRole("button", {
@@ -239,7 +250,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
 
     const row = screen.getAllByRole("button", {
@@ -278,7 +289,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
 
     const row = screen.getAllByRole("button", {
@@ -330,7 +341,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
 
     const rows = screen.getAllByRole("button", {
@@ -370,7 +381,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
 
     const row = screen.getAllByRole("button", {
@@ -394,10 +405,10 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("2,951.00")).toHaveLength(2);
+      expect(screen.getAllByText(/2,951\.00\sBDT/)).toHaveLength(2);
     });
     // No income/expense sign on transfer rows.
-    expect(screen.queryByText(/[+−]2,951\.00/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/[+−]2,951\.00\sBDT/)).not.toBeInTheDocument();
   });
 
   it("shows the linked-pair icon on paired transfer rows", async () => {
@@ -408,7 +419,7 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("2,951.00")).toHaveLength(2);
+      expect(screen.getAllByText(/2,951\.00\sBDT/)).toHaveLength(2);
     });
     expect(screen.getAllByLabelText(/linked transfer — paired/i)).toHaveLength(
       2,
@@ -425,7 +436,7 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText("1,500.00")).toBeInTheDocument();
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
     });
     expect(
       screen.queryByLabelText(/linked transfer — paired/i),
@@ -461,7 +472,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getAllByText("2,951.00")).toHaveLength(2);
+      expect(screen.getAllByText(/2,951\.00\sBDT/)).toHaveLength(2);
     });
 
     const firstRow = screen.getAllByRole("button", {
@@ -504,7 +515,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText(/−250\.00/)).toBeInTheDocument();
+      expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
     });
 
     const triggers = screen.getAllByRole("button", {
@@ -519,7 +530,7 @@ describe("TransactionsSection", () => {
     await waitFor(() => expect(receivedBody).toEqual({ type: "transfer" }));
     // After flipping to transfer, the row no longer renders with a "−" sign.
     await waitFor(() => {
-      expect(screen.queryByText(/−250\.00/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/−250\.00\sBDT/)).not.toBeInTheDocument();
     });
     // The trigger button's accessible name reflects the new type.
     await waitFor(() => {
@@ -545,7 +556,7 @@ describe("TransactionsSection", () => {
     const user = userEvent.setup();
 
     await waitFor(() => {
-      expect(screen.getByText(/−250\.00/)).toBeInTheDocument();
+      expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
     });
 
     const triggers = screen.getAllByRole("button", {
@@ -559,7 +570,7 @@ describe("TransactionsSection", () => {
       await screen.findByText(/failed to update transaction/i),
     ).toBeInTheDocument();
     // Row is restored to its original expense rendering.
-    expect(screen.getByText(/−250\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
   });
 
   it("shows a Credit badge for credit-account transactions only", async () => {
@@ -574,7 +585,10 @@ describe("TransactionsSection", () => {
               bank_name: "BRAC Bank",
               bank_account_type: "deposit" as const,
               sender: "BRAC",
-              amount: "100.00",
+              normalized_amount: "100.00",
+              normalized_currency: "BDT" as const,
+              original_amount: null,
+              original_currency: null,
               type: "expense" as const,
               date: "2026-06-20T10:00:00Z",
               paired_with_id: null,
@@ -587,7 +601,10 @@ describe("TransactionsSection", () => {
               bank_name: "Amex Card",
               bank_account_type: "credit" as const,
               sender: "AMEX",
-              amount: "200.00",
+              normalized_amount: "200.00",
+              normalized_currency: "BDT" as const,
+              original_amount: null,
+              original_currency: null,
               type: "expense" as const,
               date: "2026-06-19T10:00:00Z",
               paired_with_id: null,
@@ -612,6 +629,62 @@ describe("TransactionsSection", () => {
     expect(badges).toHaveLength(1);
     // The deposit row's bank name is present but has no Credit badge sibling.
     expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
+  });
+
+  it("renders each row with its own currency label", async () => {
+    // Mixed currencies arise after a preference change: older rows keep their
+    // previous normalized currency; newer rows use the current one.
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json({
+          transactions: [
+            {
+              id: 1,
+              message_id: 10,
+              bank_id: 1,
+              bank_name: "BRAC",
+              bank_account_type: "deposit" as const,
+              sender: "BRAC",
+              normalized_amount: "1500.00",
+              normalized_currency: "USD" as const,
+              original_amount: "180000.00",
+              original_currency: "BDT",
+              type: "income" as const,
+              date: "2026-06-20T10:00:00Z",
+              paired_with_id: null,
+              paired_with_message_id: null,
+            },
+            {
+              id: 2,
+              message_id: 11,
+              bank_id: 1,
+              bank_name: "BRAC",
+              bank_account_type: "deposit" as const,
+              sender: "BRAC",
+              normalized_amount: "250.00",
+              normalized_currency: "BDT" as const,
+              original_amount: "250.00",
+              original_currency: "BDT",
+              type: "expense" as const,
+              date: "2026-06-19T10:00:00Z",
+              paired_with_id: null,
+              paired_with_message_id: null,
+            },
+          ],
+          total: 2,
+          page: 1,
+          page_size: 10,
+          totals: { income: "1500.00", expense: "250.00" },
+        }),
+      ),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/\+1,500\.00\sUSD/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
   });
 
   it("persists the selected preset to localStorage", async () => {

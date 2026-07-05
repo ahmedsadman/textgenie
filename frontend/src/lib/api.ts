@@ -4,6 +4,8 @@ import type {
   AccountType,
   Bank,
   Category,
+  Currency,
+  CurrencySettings,
   Message,
   MetadataBlacklist,
   PaginatedMessages,
@@ -121,6 +123,14 @@ export const api = {
   updateMetadataBlacklist: (senders: string[]) =>
     client
       .put<MetadataBlacklist>("/settings/metadata-blacklist", { senders })
+      .then((r) => r.data),
+
+  getCurrency: () =>
+    client.get<CurrencySettings>("/settings/currency").then((r) => r.data),
+
+  updateCurrency: (currency: Currency) =>
+    client
+      .put<CurrencySettings>("/settings/currency", { currency })
       .then((r) => r.data),
 
   getBanks: () => client.get<Bank[]>("/banks").then((r) => r.data),

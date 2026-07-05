@@ -26,3 +26,8 @@ export const authKeys = {
   all: ["auth"] as const,
   me: () => [...authKeys.all, "me"] as const,
 };
+
+export const currencyKeys = {
+  all: ["currency"] as const,
+  detail: () => [...currencyKeys.all, "detail"] as const,
+};

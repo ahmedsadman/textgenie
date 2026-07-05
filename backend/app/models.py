@@ -30,6 +30,9 @@ class User(Base):
         String(36), unique=True, nullable=False, index=True
     )
     metadata_blacklist: Mapped[str | None] = mapped_column(Text, nullable=True)
+    normalized_currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="BDT"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -158,7 +161,14 @@ class Transaction(Base):
         ForeignKey("transactions.id", ondelete="SET NULL"),
         nullable=True,
     )
-    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    normalized_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    normalized_currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="BDT"
+    )
+    original_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2), nullable=True
+    )
+    original_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

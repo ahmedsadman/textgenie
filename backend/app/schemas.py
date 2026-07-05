@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
 
-from app.constants import CREDIT, DEPOSIT, AccountType, TransactionType
+from app.constants import CREDIT, DEPOSIT, AccountType, Currency, TransactionType
 
 CARD_DIGITS_PATTERN = r"^\d{4}\|\d{4}$"
 
@@ -87,6 +87,14 @@ class MetadataBlacklistUpdateRequest(BaseModel):
     senders: list[str]
 
 
+class CurrencySettingsResponse(BaseModel):
+    currency: Currency
+
+
+class CurrencySettingsUpdateRequest(BaseModel):
+    currency: Currency
+
+
 class SmsMessageResponse(BaseModel):
     id: int
     sender: str
@@ -157,7 +165,10 @@ class TransactionResponse(BaseModel):
     bank_name: str | None
     bank_account_type: AccountType | None = None
     sender: str
-    amount: Decimal
+    normalized_amount: Decimal
+    normalized_currency: Currency
+    original_amount: Decimal | None = None
+    original_currency: str | None = None
     type: TransactionType
     date: UtcDatetime
     paired_with_id: int | None = None

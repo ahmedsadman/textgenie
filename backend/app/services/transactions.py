@@ -46,12 +46,20 @@ def list_transactions(
     # the user's own accounts).
     sums = base.with_entities(
         func.coalesce(
-            func.sum(case((Transaction.type == "income", Transaction.amount), else_=0)),
+            func.sum(
+                case(
+                    (Transaction.type == "income", Transaction.normalized_amount),
+                    else_=0,
+                )
+            ),
             0,
         ).label("income"),
         func.coalesce(
             func.sum(
-                case((Transaction.type == "expense", Transaction.amount), else_=0)
+                case(
+                    (Transaction.type == "expense", Transaction.normalized_amount),
+                    else_=0,
+                )
             ),
             0,
         ).label("expense"),
@@ -75,7 +83,10 @@ def list_transactions(
             Bank.name.label("bank_name"),
             Bank.account_type.label("bank_account_type"),
             Message.sender,
-            Transaction.amount,
+            Transaction.normalized_amount,
+            Transaction.normalized_currency,
+            Transaction.original_amount,
+            Transaction.original_currency,
             Transaction.type,
             Transaction.date,
             Transaction.paired_with_id,
@@ -110,7 +121,10 @@ def get_transaction_response(
             Bank.name.label("bank_name"),
             Bank.account_type.label("bank_account_type"),
             Message.sender,
-            Transaction.amount,
+            Transaction.normalized_amount,
+            Transaction.normalized_currency,
+            Transaction.original_amount,
+            Transaction.original_currency,
             Transaction.type,
             Transaction.date,
             Transaction.paired_with_id,
@@ -164,7 +178,10 @@ def _row_to_response(row) -> TransactionResponse:
         bank_name=row.bank_name,
         bank_account_type=row.bank_account_type,
         sender=row.sender,
-        amount=row.amount,
+        normalized_amount=row.normalized_amount,
+        normalized_currency=row.normalized_currency,
+        original_amount=row.original_amount,
+        original_currency=row.original_currency,
         type=row.type,
         date=row.date,
         paired_with_id=row.paired_with_id,

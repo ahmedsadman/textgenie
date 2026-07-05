@@ -51,6 +51,10 @@ export interface Bank {
 
 export type TransactionType = "income" | "expense" | "transfer";
 
+export type Currency = "BDT" | "USD" | "EUR";
+
+export const CURRENCY_OPTIONS: readonly Currency[] = ["BDT", "USD", "EUR"];
+
 export interface Transaction {
   id: number;
   message_id: number;
@@ -58,11 +62,18 @@ export interface Transaction {
   bank_name: string | null;
   bank_account_type: AccountType | null;
   sender: string;
-  amount: string;
+  normalized_amount: string;
+  normalized_currency: Currency;
+  original_amount: string | null;
+  original_currency: string | null;
   type: TransactionType;
   date: string;
   paired_with_id: number | null;
   paired_with_message_id: number | null;
+}
+
+export interface CurrencySettings {
+  currency: Currency;
 }
 
 export interface TransactionTotals {

@@ -62,19 +62,24 @@ def make_transaction(
     bank: Bank | None = None,
     paired_with_id: int | None = None,
     sender: str = "X",
+    original_amount: str | Decimal | None = None,
+    original_currency: str | None = None,
 ) -> Transaction:
     """Create a Transaction along with its backing Message row.
 
-    Every Transaction has a NOT NULL message_id, so the helper builds
-    the Message implicitly — callers rarely care about the message when
-    unit-testing transaction behavior.
+    `amount` is written to `normalized_amount`. `original_amount` /
+    `original_currency` default to None to mimic pre-migration rows.
     """
     msg = make_message(db, user, sender=sender, received_at=date)
     tx = Transaction(
         user_id=user.id,
         message_id=msg.id,
         bank_id=bank.id if bank is not None else None,
-        amount=Decimal(str(amount)),
+        normalized_amount=Decimal(str(amount)),
+        original_amount=(
+            Decimal(str(original_amount)) if original_amount is not None else None
+        ),
+        original_currency=original_currency,
         type=type,
         date=date,
         paired_with_id=paired_with_id,

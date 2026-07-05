@@ -39,12 +39,16 @@ def _categorize(content: str, sender: str, categories: list[str]) -> str | None:
         return None
 
 
-def _extract_metadata(content: str, sender: str, banks: list[str]) -> MetadataResult:
+def _extract_metadata(
+    content: str, sender: str, banks: list[str], normalized_currency: str
+) -> MetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping metadata extraction")
         return MetadataResult()
     try:
-        return get_llm_provider().extract_metadata(content, sender, banks)
+        return get_llm_provider().extract_metadata(
+            content, sender, banks, normalized_currency
+        )
     except Exception:
         logger.error("LLM metadata extraction failed", exc_info=True)
         return MetadataResult()
@@ -164,13 +168,16 @@ def _extract_and_apply_metadata(
         return None
 
     metadata = _extract_metadata(
-        message.content, message.sender, [b.name for b in banks]
+        message.content,
+        message.sender,
+        [b.name for b in banks],
+        user.normalized_currency,
     )
 
     bank = _match_credit_card(banks, message.content) or _match_bank(
         banks, metadata.bank
     )
-    _update_bank_balance(bank, metadata, message)
+    _update_bank_balance(bank, metadata, message, user)
     new_tx = _record_transaction(db, user, bank, metadata, message)
 
     if new_tx is not None and new_tx.type == "transfer":
@@ -198,7 +205,7 @@ def _match_credit_card(banks: list[Bank], content: str) -> Bank | None:
 
 
 def _update_bank_balance(
-    bank: Bank | None, metadata: MetadataResult, message: Message
+    bank: Bank | None, metadata: MetadataResult, message: Message, user: User
 ) -> None:
     if not bank or metadata.balance is None:
         return
@@ -208,6 +215,19 @@ def _update_bank_balance(
             "from message id=%d",
             bank.id,
             message.id,
+        )
+        return
+    if (
+        metadata.original_currency is not None
+        and metadata.original_currency != user.normalized_currency
+    ):
+        logger.info(
+            "Message id=%d original currency %s differs from user's normalized "
+            "currency %s; skipping balance update on bank id=%d",
+            message.id,
+            metadata.original_currency,
+            user.normalized_currency,
+            bank.id,
         )
         return
     if bank.last_balance_at is not None and message.received_at <= bank.last_balance_at:
@@ -246,7 +266,10 @@ def _record_transaction(
         user_id=user.id,
         message_id=message.id,
         bank_id=bank.id if bank else None,
-        amount=metadata.amount,
+        normalized_amount=metadata.amount,
+        normalized_currency=user.normalized_currency,
+        original_amount=metadata.original_amount,
+        original_currency=metadata.original_currency,
         type=metadata.transaction_type,
         date=message.received_at,
     )
