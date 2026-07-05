@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   DATE_RANGE_PRESETS,
   dateRangeLabel,
-  parseDateOnly,
+  resolveDateRange,
   toDateOnlyString,
   type DateRangePresetKey,
   type DateRangeSelection,
@@ -20,12 +20,10 @@ interface DateRangePickerProps {
   onChange: (next: DateRangeSelection) => void;
 }
 
-function rangeFromSelection(value: DateRangeSelection): DateRange | undefined {
-  if (!value.customRange) return undefined;
-  return {
-    from: parseDateOnly(value.customRange.from),
-    to: parseDateOnly(value.customRange.to),
-  };
+function resolvedRange(value: DateRangeSelection): DateRange | undefined {
+  const { from, to } = resolveDateRange(value);
+  if (!from || !to) return undefined;
+  return { from: new Date(from), to: new Date(to) };
 }
 
 export default function DateRangePicker({
@@ -33,10 +31,10 @@ export default function DateRangePicker({
   onChange,
 }: DateRangePickerProps) {
   const [draftRange, setDraftRange] = useState<DateRange | undefined>(
-    rangeFromSelection(value),
+    resolvedRange(value),
   );
+  const [pendingFrom, setPendingFrom] = useState<Date | null>(null);
   const [open, setOpen] = useState(false);
-  const [clicksSinceOpen, setClicksSinceOpen] = useState(0);
 
   const initialPresets = DATE_RANGE_PRESETS.filter((p) => p.key !== "all_time");
   const allTimePreset = DATE_RANGE_PRESETS.find((p) => p.key === "all_time");
@@ -44,39 +42,37 @@ export default function DateRangePicker({
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
-      setDraftRange(rangeFromSelection(value));
-      setClicksSinceOpen(0);
+      setDraftRange(resolvedRange(value));
+      setPendingFrom(null);
     }
   }
 
   function selectPreset(key: DateRangePresetKey) {
-    onChange({ presetKey: key, customRange: null });
-    setDraftRange(undefined);
+    const nextSelection: DateRangeSelection = {
+      presetKey: key,
+      customRange: null,
+    };
+    onChange(nextSelection);
+    setDraftRange(resolvedRange(nextSelection));
+    setPendingFrom(null);
     setOpen(false);
   }
 
-  function handleRangeSelect(_range: DateRange | undefined, triggerDate: Date) {
-    if (clicksSinceOpen === 0) {
-      setDraftRange({ from: triggerDate, to: triggerDate });
-      setClicksSinceOpen(1);
+  function handleDayClick(day: Date) {
+    if (!pendingFrom || day <= pendingFrom) {
+      setPendingFrom(day);
+      setDraftRange({ from: day, to: day });
       return;
     }
-
-    const from = draftRange?.from;
-    if (!from || triggerDate <= from) {
-      setDraftRange({ from: triggerDate, to: triggerDate });
-      setClicksSinceOpen(1);
-      return;
-    }
-
-    setDraftRange({ from, to: triggerDate });
+    setDraftRange({ from: pendingFrom, to: day });
     onChange({
       presetKey: "custom",
       customRange: {
-        from: toDateOnlyString(from),
-        to: toDateOnlyString(triggerDate),
+        from: toDateOnlyString(pendingFrom),
+        to: toDateOnlyString(day),
       },
     });
+    setPendingFrom(null);
     setOpen(false);
   }
 
@@ -128,14 +124,22 @@ export default function DateRangePicker({
                   </button>
                 )}
               </div>
-              <Calendar
-                mode="range"
-                numberOfMonths={2}
-                selected={draftRange}
-                onSelect={handleRangeSelect}
-                defaultMonth={defaultMonth}
-                classNames={{ months: "flex flex-row gap-4" }}
-              />
+              <div className="flex flex-col">
+                <Calendar
+                  mode="range"
+                  numberOfMonths={2}
+                  selected={draftRange}
+                  onSelect={() => {}}
+                  onDayClick={handleDayClick}
+                  defaultMonth={defaultMonth}
+                  classNames={{ months: "flex flex-row gap-4" }}
+                />
+                {pendingFrom && (
+                  <p className="pt-2 text-center text-xs text-muted-foreground">
+                    Select end date
+                  </p>
+                )}
+              </div>
             </div>
           </Popover.Popup>
         </Popover.Positioner>

@@ -29,17 +29,18 @@ function Calendar({ className, classNames, ...props }: CalendarProps) {
         weekday:
           "w-8 h-8 text-muted-foreground text-xs font-normal flex items-center justify-center",
         week: "flex w-full",
-        day: "w-8 h-8 p-0 text-center",
+        day: "relative w-8 h-8 p-0 text-center",
         day_button:
-          "size-8 inline-flex items-center justify-center rounded-md text-sm font-normal hover:bg-muted aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:hover:bg-primary/80",
+          "relative z-10 size-8 inline-flex items-center justify-center rounded-md text-sm font-normal hover:bg-muted aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:hover:bg-primary/80",
         today: "text-primary font-semibold",
         outside: "text-muted-foreground/50",
         disabled: "text-muted-foreground opacity-40 pointer-events-none",
         range_start:
-          "[&>button]:bg-primary [&>button]:text-primary-foreground rounded-l-md",
+          "relative isolate z-0 rounded-l-md bg-muted after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-muted [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary/90",
         range_end:
-          "[&>button]:bg-primary [&>button]:text-primary-foreground rounded-r-md",
-        range_middle: "[&>button]:bg-muted [&>button]:text-foreground",
+          "relative isolate z-0 rounded-r-md bg-muted after:absolute after:inset-y-0 after:left-0 after:w-2 after:bg-muted [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary/90",
+        range_middle:
+          "relative isolate z-0 bg-muted [&>button]:bg-transparent [&>button]:text-foreground [&>button]:hover:bg-muted/70",
         ...classNames,
       }}
       components={{
