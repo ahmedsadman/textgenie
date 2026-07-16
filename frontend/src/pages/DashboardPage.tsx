@@ -85,10 +85,6 @@ export default function DashboardPage() {
     });
   }
 
-  if (isPending) {
-    return <p className="text-muted-foreground">Loading...</p>;
-  }
-
   const totalPages = messages ? Math.ceil(messages.total / PAGE_SIZE) : 0;
   const hasFilter =
     debouncedSearch.trim() !== "" || selectedCategories.length > 0;
@@ -190,7 +186,11 @@ export default function DashboardPage() {
             </Popover.Root>
           </div>
 
-          {!messages || messages.messages.length === 0 ? (
+          {isPending ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Loading messages...
+            </p>
+          ) : !messages || messages.messages.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {hasFilter
                 ? "No messages found"
