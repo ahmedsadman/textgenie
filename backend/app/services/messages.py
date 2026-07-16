@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, text
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy.orm import joinedload
 
@@ -9,7 +9,18 @@ from app.models import Message, User
 
 SENDERS_LIMIT = 100
 
+# Characters with special meaning in MySQL FULLTEXT BOOLEAN MODE. Stripped from
+# user tokens before we wrap them with our own '+' and '*' operators, so a user
+# typing '+' or '*' can't change the query semantics or trigger a syntax error.
+_BOOLEAN_OPERATOR_CHARS = str.maketrans("", "", '+-><()~*"@')
+
 logger = logging.getLogger(__name__)
+
+
+def _search_tokens(search: str) -> list[str]:
+    """Whitespace-split the query and strip BOOLEAN MODE operator chars."""
+    cleaned = (raw.translate(_BOOLEAN_OPERATOR_CHARS) for raw in search.split())
+    return [t for t in cleaned if t]
 
 
 def list_messages(
@@ -38,22 +49,31 @@ def list_messages(
         query = query.filter(or_(*filters))
 
     if search:
-        dialect = db.bind.dialect.name
-        if dialect == "mysql":
-            # LIMITATION: Default FULLTEXT parser uses whitespace word boundaries.
-            # Works for English and space-delimited scripts, but some unicode texts like
-            # Bengali or Chinese may not be tokenized correctly.
-            query = query.filter(
-                text("MATCH(sender, content) AGAINST(:q IN NATURAL LANGUAGE MODE)")
-            ).params(q=search)
-        else:
-            pattern = f"%{search}%"
-            query = query.filter(
-                or_(
-                    Message.sender.contains(pattern),
-                    Message.content.contains(pattern),
-                )
-            )
+        tokens = _search_tokens(search)
+        if tokens:
+            dialect = db.bind.dialect.name
+            if dialect == "mysql":
+                # BOOLEAN MODE with '+tok*' per token: each token is required (AND)
+                # and matches any indexed word that starts with it, so "tran" finds
+                # "transaction". Note: InnoDB's innodb_ft_min_token_size defaults to
+                # 3, so 1-2 char tokens are silently ignored by the index.
+                boolean_query = " ".join(f"+{t}*" for t in tokens)
+                query = query.filter(
+                    text("MATCH(sender, content) AGAINST(:q IN BOOLEAN MODE)")
+                ).params(q=boolean_query)
+            else:
+                # SQLite/Postgres fallback used in tests. Match each token as a
+                # word-prefix in either field: at start of string OR after a space.
+                per_token = [
+                    or_(
+                        Message.sender.like(f"{t}%"),
+                        Message.sender.like(f"% {t}%"),
+                        Message.content.like(f"{t}%"),
+                        Message.content.like(f"% {t}%"),
+                    )
+                    for t in tokens
+                ]
+                query = query.filter(and_(*per_token))
 
     total = query.count()
     offset = (page - 1) * page_size

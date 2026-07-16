@@ -127,6 +127,46 @@ def test_list_messages_search_content(client):
     assert data["messages"][0]["content"] == "Happy birthday"
 
 
+def test_list_messages_search_prefix(client):
+    register_and_login(client)
+    token = get_webhook_token(client)
+    create_message(client, token, sender="Bank", content="Transaction of $50 completed")
+    create_message(client, token, sender="Mom", content="Happy birthday")
+
+    response = client.get("/api/messages?search=tran")
+    data = response.json()
+    assert data["total"] == 1
+    assert data["messages"][0]["sender"] == "Bank"
+
+
+def test_list_messages_search_multi_token_prefix(client):
+    register_and_login(client)
+    token = get_webhook_token(client)
+    create_message(client, token, sender="Bank", content="You paid at Starbucks")
+    create_message(client, token, sender="Bank", content="You paid at Amazon")
+    create_message(client, token, sender="Mom", content="Happy birthday")
+
+    response = client.get("/api/messages?search=pai star")
+    data = response.json()
+    assert data["total"] == 1
+    assert data["messages"][0]["content"] == "You paid at Starbucks"
+
+
+def test_list_messages_search_sanitizes_operators(client):
+    register_and_login(client)
+    token = get_webhook_token(client)
+    create_message(client, token, sender="Bank", content="Transaction of $50 completed")
+    create_message(client, token, sender="Mom", content="Happy birthday")
+
+    # BOOLEAN-MODE operator chars in the query must not crash or change semantics —
+    # they should be stripped, leaving "tran" as the effective search token.
+    response = client.get("/api/messages?search=%2Btr%2Aan")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["messages"][0]["sender"] == "Bank"
+
+
 def test_list_messages_search_no_results(client):
     _setup_user_with_messages(client, count=2)
     response = client.get("/api/messages?search=nonexistent")
