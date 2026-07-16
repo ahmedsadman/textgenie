@@ -70,6 +70,31 @@ export interface Transaction {
   date: string;
   paired_with_id: number | null;
   paired_with_message_id: number | null;
+  bill_id: number | null;
+}
+
+export interface Bill {
+  id: number;
+  message_id: number;
+  sender: string;
+  received_at: string;
+  bank_id: number | null;
+  bank_name: string | null;
+  normalized_total_due: string;
+  normalized_currency: Currency;
+  original_amount: string | null;
+  original_currency: string | null;
+  statement_period: string | null; // YYYY-MM-DD (first of month)
+  paid_at: string | null;
+  linked_transaction_ids: number[];
+  created_at: string;
+}
+
+export interface PaginatedBills {
+  bills: Bill[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface CurrencySettings {

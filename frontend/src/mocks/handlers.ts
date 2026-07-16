@@ -7,4 +7,7 @@ export const handlers: RequestHandler[] = [
   http.get("/api/settings/currency", () =>
     HttpResponse.json({ currency: "BDT" }),
   ),
+  http.get("/api/bills", () =>
+    HttpResponse.json({ bills: [], total: 0, page: 1, page_size: 20 }),
+  ),
 ];

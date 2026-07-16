@@ -3,11 +3,13 @@ import axios from "axios";
 import type {
   AccountType,
   Bank,
+  Bill,
   Category,
   Currency,
   CurrencySettings,
   Message,
   MetadataBlacklist,
+  PaginatedBills,
   PaginatedMessages,
   PaginatedTransactions,
   Transaction,
@@ -66,6 +68,14 @@ export interface MessagesQuery {
 export interface TransactionsQuery {
   page: number;
   page_size: number;
+  from_date?: string;
+  to_date?: string;
+}
+
+export interface BillsQuery {
+  page: number;
+  page_size: number;
+  bank_id?: number;
   from_date?: string;
   to_date?: string;
 }
@@ -152,5 +162,15 @@ export const api = {
   updateTransaction: (id: number, type: TransactionType) =>
     client
       .patch<Transaction>(`/transactions/${id}`, { type })
+      .then((r) => r.data),
+
+  getBills: (params: BillsQuery) =>
+    client.get<PaginatedBills>("/bills", { params }).then((r) => r.data),
+
+  getBill: (id: number) => client.get<Bill>(`/bills/${id}`).then((r) => r.data),
+
+  unlinkBillPayments: (id: number, transaction_ids: number[]) =>
+    client
+      .patch<Bill>(`/bills/${id}`, { unlink_transaction_ids: transaction_ids })
       .then((r) => r.data),
 };

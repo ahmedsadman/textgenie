@@ -17,6 +17,9 @@ class _ConcreteProvider(LLMProvider):
     def extract_metadata(self, *a, **k):  # pragma: no cover - prompt-builder tests only
         raise NotImplementedError
 
+    def extract_bill_metadata(self, *a, **k):  # pragma: no cover
+        raise NotImplementedError
+
 
 def _make_response(text):
     response = MagicMock()

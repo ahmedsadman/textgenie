@@ -308,7 +308,7 @@ describe("FinancePage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("BRAC Credit Card")).toBeInTheDocument();
+      expect(screen.getAllByText("BRAC Credit Card").length).toBeGreaterThan(0);
     });
     expect(screen.getByText("Credit")).toBeInTheDocument();
     expect(screen.getByText(/•••• 3711/)).toBeInTheDocument();
@@ -359,7 +359,7 @@ describe("FinancePage", () => {
     // The credit card appears in the list with the Credit badge — proof that the
     // submit sent account_type=credit and the API accepted it.
     await waitFor(() => {
-      expect(screen.getByText("City Credit Card")).toBeInTheDocument();
+      expect(screen.getAllByText("City Credit Card").length).toBeGreaterThan(0);
     });
     expect(screen.getByText("Credit")).toBeInTheDocument();
     expect(screen.getByText(/•••• 3711/)).toBeInTheDocument();

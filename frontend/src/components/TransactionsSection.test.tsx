@@ -443,6 +443,47 @@ describe("TransactionsSection", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the receipt icon on transactions linked to a bill", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json({
+          transactions: [
+            {
+              id: 500,
+              message_id: 600,
+              bank_id: 3,
+              bank_name: "EBL Card",
+              bank_account_type: "credit" as const,
+              sender: "EBL",
+              normalized_amount: "8020.00",
+              normalized_currency: "BDT" as const,
+              original_amount: null,
+              original_currency: null,
+              type: "transfer" as const,
+              date: "2026-07-05T10:00:00Z",
+              paired_with_id: null,
+              paired_with_message_id: null,
+              bill_id: 42,
+            },
+          ],
+          total: 1,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0.00", expense: "0.00" },
+        }),
+      ),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/8,020\.00\sBDT/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByLabelText(/linked to a credit card bill/i),
+    ).toBeInTheDocument();
+  });
+
   it("expands a paired row and shows both source SMS messages", async () => {
     server.use(
       http.get("/api/transactions", () => HttpResponse.json(pairedTransfers)),

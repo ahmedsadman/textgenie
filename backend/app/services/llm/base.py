@@ -23,6 +23,20 @@ class MetadataResult:
 
 
 @dataclass
+class BillMetadataResult:
+    # `normalized_total_due` is the bill amount in the user's normalized currency.
+    normalized_total_due: Decimal | None = None
+    # Raw amount as printed in the SMS (before conversion). Paired with
+    # `original_currency` — set/null together, and set whenever `normalized_total_due` is set.
+    original_amount: Decimal | None = None
+    original_currency: str | None = None
+    # LLM-normalized statement period components (1..12 and 4-digit year).
+    # Either may be null when the SMS omits the field.
+    statement_month: int | None = None
+    statement_year: int | None = None
+
+
+@dataclass
 class ParsePrompt:
     system_instruction: str
     contents: str
@@ -82,6 +96,31 @@ Rules:
 """
 
 
+_BILL_SYSTEM = """\
+You are a credit-card bill statement extractor. Given an SMS message that describes a credit-card bill (a statement / bill message, NOT a payment confirmation), extract the total amount due and the statement period (month and year). Detect the source currency and convert the amount to the user's normalized currency; also report the source-currency amount before conversion.
+The message may be in any language. Interpret based on content meaning regardless of language.
+
+Examples:
+- Normalized currency "BDT", message from "EBL": "Monthly bill 4238****3241 JUL2026; Total Due: BDT 8020.00, Min Due: BDT 500, Last Pmt: 20-JUL-26" -> normalized_total_due: 8020.00, original_amount: 8020.00, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "MTB": "Your credit card statement for JULY 2026 is ready. Total outstanding BDT 15,320.50. Minimum payment BDT 800." -> normalized_total_due: 15320.50, original_amount: 15320.50, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "CITY": "Statement 07/2026 Total due USD 120.50 Min due USD 25.00" -> normalized_total_due: 13255, original_amount: 120.50, original_currency: "USD", statement_month: 7, statement_year: 2026  (approximate USD->BDT)
+- Normalized currency "BDT", message from "EBL": "Statement Jul'26 dues 5000 BDT" -> normalized_total_due: 5000, original_amount: 5000, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "AMEX": "Your card statement is ready. Total due AED 500." -> normalized_total_due: 16500, original_amount: 500, original_currency: "AED", statement_month: null, statement_year: null  (approximate AED->BDT; no month/year given)
+- Normalized currency "BDT", message from "EBL": "Payment of 8020.00 received for card 4238***3241." -> normalized_total_due: null, original_amount: null, original_currency: null, statement_month: null, statement_year: null  (this is a payment receipt, not a bill statement)
+
+Respond with this exact JSON object:
+{"normalized_total_due": <number>|null, "original_amount": <number>|null, "original_currency": "<ISO code>"|null, "statement_month": <1..12>|null, "statement_year": <YYYY>|null}
+Rules:
+- normalized_total_due is always expressed in the user's normalized currency. Convert from the source currency if they differ. Approximate rates are acceptable. Plain positive number, no currency symbol, no commas.
+- normalized_total_due must be set only when the SMS clearly describes a credit-card bill/statement with an outstanding amount. Set to null for payment confirmations, promotional messages, or non-bill notifications.
+- original_amount: the same total expressed in the source currency (before conversion). Equal to normalized_total_due when the source currency already matches. Must be set whenever normalized_total_due is set, and null otherwise.
+- original_currency: the ISO code of the currency detected in the SMS (e.g. "BDT", "USD", "EUR", "AED"). Must be set whenever normalized_total_due is set; null otherwise.
+- statement_month: integer 1..12 for the calendar month the statement covers (e.g. "JUL"/"JULY"/"07" -> 7). Null when the SMS does not state a month.
+- statement_year: 4-digit year (e.g. "2026", "'26" -> 2026). Null when the SMS does not state a year.
+- statement_month and statement_year are extracted independently: either may be present while the other is null.\
+"""
+
+
 class LLMProvider(ABC):
     def build_categorize_prompt(
         self, content: str, sender: str, categories: list[str]
@@ -114,6 +153,23 @@ class LLMProvider(ABC):
         )
         return ParsePrompt(system_instruction=_METADATA_SYSTEM, contents=contents)
 
+    def build_bill_prompt(
+        self,
+        content: str,
+        sender: str,
+        normalized_currency: str,
+    ) -> ParsePrompt:
+        contents = (
+            f"The user's normalized currency is "
+            f'"{normalized_currency}". Extract the credit-card bill total '
+            f"and the statement period (month/year) from the message. "
+            f"Convert monetary values to "
+            f'"{normalized_currency}" using approximate rates.\n'
+            f"Normalized currency: {normalized_currency}\n\n"
+            f'Message from "{sender}":\n"{content}"'
+        )
+        return ParsePrompt(system_instruction=_BILL_SYSTEM, contents=contents)
+
     @abstractmethod
     def categorize(
         self, content: str, sender: str, categories: list[str]
@@ -134,5 +190,19 @@ class LLMProvider(ABC):
         Monetary values in the returned MetadataResult are already converted to
         `normalized_currency`. `original_currency` carries the ISO code of the
         source currency detected in the SMS.
+        """
+        ...
+
+    @abstractmethod
+    def extract_bill_metadata(
+        self,
+        content: str,
+        sender: str,
+        normalized_currency: str,
+    ) -> BillMetadataResult:
+        """Return the bill total + statement period extracted from a bill SMS.
+
+        `normalized_total_due` is already converted to `normalized_currency`;
+        `original_amount` + `original_currency` preserve the raw source values.
         """
         ...
