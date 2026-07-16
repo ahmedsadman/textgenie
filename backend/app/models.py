@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -44,6 +45,7 @@ class User(Base):
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
     banks: Mapped[list["Bank"]] = relationship(back_populates="user")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")
+    bills: Mapped[list["Bill"]] = relationship(back_populates="user")
 
 
 class Session(Base):
@@ -161,6 +163,12 @@ class Transaction(Base):
         ForeignKey("transactions.id", ondelete="SET NULL"),
         nullable=True,
     )
+    bill_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("bills.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     normalized_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     normalized_currency: Mapped[str] = mapped_column(
         String(3), nullable=False, server_default="BDT"
@@ -180,3 +188,55 @@ class Transaction(Base):
     user: Mapped["User"] = relationship(back_populates="transactions")
     bank: Mapped["Bank | None"] = relationship()
     message: Mapped["Message"] = relationship()
+    bill: Mapped["Bill | None"] = relationship(back_populates="linked_transactions")
+
+
+class Bill(Base):
+    __tablename__ = "bills"
+    __table_args__ = (
+        UniqueConstraint("message_id", name="uq_bill_message_id"),
+        Index("ix_bills_user_id", "user_id"),
+        Index(
+            "ix_bill_user_bank_period",
+            "user_id",
+            "bank_id",
+            "statement_period",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    bank_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("banks.id", ondelete="SET NULL"), nullable=True
+    )
+    message_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    normalized_total_due: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False
+    )
+    normalized_currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default="BDT"
+    )
+    original_amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2), nullable=True
+    )
+    original_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    statement_period: Mapped[date | None] = mapped_column(Date, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="bills")
+    bank: Mapped["Bank | None"] = relationship()
+    message: Mapped["Message"] = relationship()
+    linked_transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="bill"
+    )

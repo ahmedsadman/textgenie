@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Link2,
   Loader2,
+  Receipt,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
@@ -271,6 +272,12 @@ export default function TransactionsSection() {
                           <Link2
                             className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
                             aria-label="Linked transfer — paired with another transaction"
+                          />
+                        )}
+                        {tx.bill_id !== null && (
+                          <Receipt
+                            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                            aria-label="Linked to a credit card bill"
                           />
                         )}
                       </div>

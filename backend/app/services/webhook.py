@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session as DBSession
@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session as DBSession
 from app.config import GEMINI_API_KEY
 from app.constants import CREDIT
 from app.database import SessionLocal
-from app.models import Bank, Category, Message, Transaction, User
+from app.models import Bank, Bill, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
-from app.services import metadata_blacklist, transfer_matcher
+from app.services import bill_payment_matcher, metadata_blacklist, transfer_matcher
+from app.services.banks import match_bank_by_sender
 from app.services.categories import DefaultCategory, _categories_filter
-from app.services.llm.base import MetadataResult
+from app.services.llm.base import BillMetadataResult, MetadataResult
 from app.services.llm.provider import get_llm_provider
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,21 @@ def _extract_metadata(
         return MetadataResult()
 
 
+def _extract_bill_metadata(
+    content: str, sender: str, normalized_currency: str
+) -> BillMetadataResult:
+    if not GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY not configured — skipping bill extraction")
+        return BillMetadataResult()
+    try:
+        return get_llm_provider().extract_bill_metadata(
+            content, sender, normalized_currency
+        )
+    except Exception:
+        logger.error("LLM bill extraction failed", exc_info=True)
+        return BillMetadataResult()
+
+
 def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Message:
     user = db.query(User).filter(User.webhook_token == token).first()
     if not user:
@@ -86,6 +102,7 @@ def process_webhook(db: DBSession, token: str, payload: WebhookPayload) -> Messa
 def parse_message(message_id: int) -> None:
     db = SessionLocal()
     new_transfer_tx_id: int | None = None
+    new_bill_id: int | None = None
     try:
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
@@ -98,9 +115,22 @@ def parse_message(message_id: int) -> None:
             return
 
         category = _categorize_and_assign(db, message)
+        category_name = category.name if category else None
 
-        if _should_extract_metadata(message, user, category):
+        if _sender_blacklisted(message, user):
+            db.commit()
+            return
+
+        if category_name == DefaultCategory.TRANSACTION.value:
             new_transfer_tx_id = _extract_and_apply_metadata(db, message, user)
+        elif category_name == DefaultCategory.BILL.value:
+            new_bill_id = _handle_bill_message(db, message, user)
+        else:
+            logger.info(
+                "Message id=%d category '%s' does not require extraction",
+                message.id,
+                category_name,
+            )
 
         db.commit()
     except Exception:
@@ -115,6 +145,8 @@ def parse_message(message_id: int) -> None:
 
     if new_transfer_tx_id is not None:
         transfer_matcher.schedule_transfer_match(new_transfer_tx_id)
+    if new_bill_id is not None:
+        bill_payment_matcher.schedule_bill_payment_match(new_bill_id)
 
 
 def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
@@ -132,27 +164,15 @@ def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
     return category
 
 
-def _should_extract_metadata(
-    message: Message, user: User, category: Category | None
-) -> bool:
-    if category is None or category.name != DefaultCategory.TRANSACTION.value:
-        logger.info(
-            "Message id=%d category is not '%s'; skipping metadata extraction",
-            message.id,
-            DefaultCategory.TRANSACTION.value,
-        )
-        return False
-
+def _sender_blacklisted(message: Message, user: User) -> bool:
     if metadata_blacklist.contains(message.sender, user.metadata_blacklist):
         logger.info(
-            "Message id=%d sender '%s' is in metadata blacklist; "
-            "skipping metadata extraction",
+            "Message id=%d sender '%s' is in metadata blacklist; skipping extraction",
             message.id,
             message.sender,
         )
-        return False
-
-    return True
+        return True
+    return False
 
 
 def _extract_and_apply_metadata(
@@ -240,6 +260,87 @@ def _update_bank_balance(
         metadata.balance,
         message.id,
     )
+
+
+def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | None:
+    metadata = _extract_bill_metadata(
+        message.content, message.sender, user.normalized_currency
+    )
+    if metadata.normalized_total_due is None:
+        logger.info(
+            "Message id=%d bill extraction returned no normalized_total_due; skipping",
+            message.id,
+        )
+        return None
+
+    banks = db.query(Bank).filter(Bank.user_id == user.id).all()
+    bank = match_bank_by_sender(banks, message.sender)
+    bill = _record_bill(db, user, bank, metadata, message)
+    return bill.id if bill else None
+
+
+def _record_bill(
+    db: DBSession,
+    user: User,
+    bank: Bank | None,
+    metadata: BillMetadataResult,
+    message: Message,
+) -> Bill | None:
+    existing = db.query(Bill).filter(Bill.message_id == message.id).first()
+    if existing is not None:
+        logger.info(
+            "Bill already exists for message id=%d; skipping insert", message.id
+        )
+        return None
+
+    statement_period: date | None = None
+    if metadata.statement_month is not None and metadata.statement_year is not None:
+        statement_period = date(metadata.statement_year, metadata.statement_month, 1)
+
+    if bank is not None and statement_period is not None:
+        duplicate = (
+            db.query(Bill)
+            .filter(
+                Bill.user_id == user.id,
+                Bill.bank_id == bank.id,
+                Bill.statement_period == statement_period,
+            )
+            .first()
+        )
+        if duplicate is not None:
+            logger.info(
+                "Bill for user_id=%d bank_id=%d period=%s already exists "
+                "(id=%d); skipping insert for message id=%d",
+                user.id,
+                bank.id,
+                statement_period,
+                duplicate.id,
+                message.id,
+            )
+            return None
+
+    bill = Bill(
+        user_id=user.id,
+        bank_id=bank.id if bank else None,
+        message_id=message.id,
+        normalized_total_due=metadata.normalized_total_due,
+        normalized_currency=user.normalized_currency,
+        original_amount=metadata.original_amount,
+        original_currency=metadata.original_currency,
+        statement_period=statement_period,
+    )
+    db.add(bill)
+    db.flush()
+    logger.info(
+        "Bill recorded for message id=%d: normalized_total_due=%s period=%s bank_id=%s "
+        "(bill id=%d)",
+        message.id,
+        metadata.normalized_total_due,
+        statement_period,
+        bank.id if bank else None,
+        bill.id,
+    )
+    return bill
 
 
 def _record_transaction(

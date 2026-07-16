@@ -91,6 +91,7 @@ def list_transactions(
             Transaction.date,
             Transaction.paired_with_id,
             paired.message_id.label("paired_with_message_id"),
+            Transaction.bill_id,
         )
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .offset(offset)
@@ -129,6 +130,7 @@ def get_transaction_response(
             Transaction.date,
             Transaction.paired_with_id,
             paired.message_id.label("paired_with_message_id"),
+            Transaction.bill_id,
         )
         .first()
     )
@@ -157,13 +159,19 @@ def update_transaction(
     if tx.type == new_type:
         return get_transaction_response(db, user, transaction_id)
 
-    if tx.type == "transfer" and tx.paired_with_id is not None:
-        counterpart = (
-            db.query(Transaction).filter(Transaction.id == tx.paired_with_id).first()
-        )
-        if counterpart is not None:
-            counterpart.paired_with_id = None
-        tx.paired_with_id = None
+    if tx.type == "transfer":
+        counterpart = None
+        if tx.paired_with_id is not None:
+            counterpart = (
+                db.query(Transaction)
+                .filter(Transaction.id == tx.paired_with_id)
+                .first()
+            )
+            if counterpart is not None:
+                counterpart.paired_with_id = None
+                counterpart.bill_id = None
+            tx.paired_with_id = None
+        tx.bill_id = None
 
     tx.type = new_type
     db.commit()
@@ -186,4 +194,5 @@ def _row_to_response(row) -> TransactionResponse:
         date=row.date,
         paired_with_id=row.paired_with_id,
         paired_with_message_id=row.paired_with_message_id,
+        bill_id=row.bill_id,
     )

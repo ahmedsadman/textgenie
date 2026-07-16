@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import BankFormDialog from "@/components/BankFormDialog";
+import BillsSection from "@/components/BillsSection";
 import TransactionsSection from "@/components/TransactionsSection";
 import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
 import { useCurrency } from "@/hooks/queries/useCurrency";
@@ -209,6 +210,8 @@ export default function FinancePage() {
           onClose={() => setDialogOpen(false)}
         />
       )}
+
+      <BillsSection banks={banks} />
 
       <TransactionsSection />
     </div>

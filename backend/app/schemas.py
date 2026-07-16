@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
@@ -173,6 +173,7 @@ class TransactionResponse(BaseModel):
     date: UtcDatetime
     paired_with_id: int | None = None
     paired_with_message_id: int | None = None
+    bill_id: int | None = None
 
 
 class TransactionUpdateRequest(BaseModel):
@@ -190,3 +191,31 @@ class PaginatedTransactionsResponse(BaseModel):
     page: int
     page_size: int
     totals: TransactionTotals
+
+
+class BillResponse(BaseModel):
+    id: int
+    message_id: int
+    sender: str
+    received_at: UtcDatetime
+    bank_id: int | None
+    bank_name: str | None
+    normalized_total_due: Decimal
+    normalized_currency: Currency
+    original_amount: Decimal | None = None
+    original_currency: str | None = None
+    statement_period: date | None = None
+    paid_at: UtcDatetime | None = None
+    linked_transaction_ids: list[int] = Field(default_factory=list)
+    created_at: UtcDatetime
+
+
+class PaginatedBillsResponse(BaseModel):
+    bills: list[BillResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class BillUpdateRequest(BaseModel):
+    unlink_transaction_ids: list[int] | None = None

@@ -12,6 +12,7 @@ from google.genai import types
 from app.config import GEMINI_API_KEY
 from app.constants import TransactionType
 from app.services.llm.base import (
+    BillMetadataResult,
     LLMProvider,
     MetadataResult,
     ParsePrompt,
@@ -90,6 +91,22 @@ def _parse_currency(raw: str | None) -> str | None:
     return value if len(value) == 3 and value.isalpha() else None
 
 
+def _parse_month(raw) -> int | None:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if 1 <= value <= 12 else None
+
+
+def _parse_year(raw) -> int | None:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if 2000 <= value <= 2100 else None
+
+
 class GeminiProvider(LLMProvider):
     MODELS = ("gemini-2.5-flash-lite", "gemini-3.1-flash-lite")
     MAX_CYCLES = 3
@@ -119,6 +136,16 @@ class GeminiProvider(LLMProvider):
         prompt = self.build_metadata_prompt(content, sender, banks, normalized_currency)
         response_text = self._generate_with_fallback(prompt)
         return self._parse_metadata_response(response_text, banks)
+
+    def extract_bill_metadata(
+        self,
+        content: str,
+        sender: str,
+        normalized_currency: str,
+    ) -> BillMetadataResult:
+        prompt = self.build_bill_prompt(content, sender, normalized_currency)
+        response_text = self._generate_with_fallback(prompt)
+        return self._parse_bill_response(response_text)
 
     def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
         last_exc: BaseException | None = None
@@ -230,4 +257,43 @@ class GeminiProvider(LLMProvider):
             transaction_type=transaction_type,
             original_currency=original_currency,
             original_amount=original_amount,
+        )
+
+    def _parse_bill_response(self, response_text: str | None) -> BillMetadataResult:
+        if not response_text:
+            logger.error("LLM returned empty bill response")
+            return BillMetadataResult()
+        data = json.loads(response_text)
+        normalized_total_due = _parse_balance(data.get("normalized_total_due"))
+        original_amount = _parse_balance(data.get("original_amount"))
+        original_currency = _parse_currency(data.get("original_currency"))
+        statement_month = _parse_month(data.get("statement_month"))
+        statement_year = _parse_year(data.get("statement_year"))
+
+        # normalized_total_due / original_amount / original_currency must all be present
+        # together to be usable (mirrors the metadata amount rule).
+        if (
+            normalized_total_due is None
+            or original_amount is None
+            or original_currency is None
+        ):
+            normalized_total_due = None
+            original_amount = None
+            original_currency = None
+
+        logger.info(
+            "LLM extracted bill: normalized_total_due=%s, original_amount=%s, "
+            "original_currency=%s, statement_month=%s, statement_year=%s",
+            normalized_total_due,
+            original_amount,
+            original_currency,
+            statement_month,
+            statement_year,
+        )
+        return BillMetadataResult(
+            normalized_total_due=normalized_total_due,
+            original_amount=original_amount,
+            original_currency=original_currency,
+            statement_month=statement_month,
+            statement_year=statement_year,
         )

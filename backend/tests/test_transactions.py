@@ -1,13 +1,14 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 
-from app.models import Transaction
+from app.models import Transaction, User
 from app.services.llm.base import MetadataResult
 from tests.conftest import (
     create_message,
     get_webhook_token,
     register_and_login,
 )
-from tests.factories import make_mock_provider
+from tests.factories import make_bank, make_bill, make_mock_provider
 
 
 def _create_bank(client, name="BRAC Bank"):
@@ -488,3 +489,72 @@ def test_get_transactions_paired_fields_null_when_unpaired(client, run_message_p
     tx = _create_expense(client, run_message_parse)
     assert tx["paired_with_id"] is None
     assert tx["paired_with_message_id"] is None
+
+
+def test_patch_transfer_to_expense_clears_bill_id_on_both_sides(
+    client, run_message_parse, db
+):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("MTB", "cc credit", "transfer", "300", 1_700_000_000_000),
+            ("CITY", "debit", "transfer", "300", 1_700_000_001_000),
+        ],
+    )
+    user = db.query(User).first()
+    card = make_bank(
+        db, user, "EBL Card", account_type="credit", card_digits="1234|5678"
+    )
+    bill = make_bill(
+        db,
+        user,
+        bank=card,
+        normalized_total_due="300.00",
+        received_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+    )
+    txs = db.query(Transaction).order_by(Transaction.id).all()
+    transfer_tx, expense_tx = txs[0], txs[1]
+    transfer_tx.paired_with_id = expense_tx.id
+    expense_tx.paired_with_id = transfer_tx.id
+    transfer_tx.bill_id = bill.id
+    expense_tx.bill_id = bill.id
+    db.commit()
+
+    client.patch(f"/api/transactions/{transfer_tx.id}", json={"type": "expense"})
+
+    db.refresh(transfer_tx)
+    db.refresh(expense_tx)
+    assert transfer_tx.bill_id is None
+    assert expense_tx.bill_id is None
+    assert transfer_tx.paired_with_id is None
+    assert expense_tx.paired_with_id is None
+
+
+def test_get_transactions_exposes_bill_id(client, run_message_parse, db):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [("MTB", "cc credit", "transfer", "200", 1_700_000_000_000)],
+    )
+    user = db.query(User).first()
+    card = make_bank(
+        db, user, "EBL Card", account_type="credit", card_digits="1234|5678"
+    )
+    bill = make_bill(
+        db,
+        user,
+        bank=card,
+        normalized_total_due="200.00",
+        received_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+    )
+    tx = db.query(Transaction).first()
+    tx.bill_id = bill.id
+    db.commit()
+
+    body = client.get("/api/transactions").json()
+    assert body["transactions"][0]["bill_id"] == bill.id

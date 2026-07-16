@@ -28,8 +28,10 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session as DBSession
 
+from app.constants import CREDIT
 from app.database import SessionLocal
 from app.models import Transaction
+from app.services import bill_payment_matcher
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +148,16 @@ def _deferred_match_worker(transaction_id: int) -> None:
                 tx.type,
                 tx.paired_with_id,
             )
-            return
-        find_and_pair_transfer_counterpart(db, tx)
+        else:
+            find_and_pair_transfer_counterpart(db, tx)
+
+        db.refresh(tx)
+        if (
+            tx.bank is not None
+            and tx.bank.account_type == CREDIT
+            and tx.bill_id is None
+        ):
+            bill_payment_matcher.find_and_link_bill_for_payment(db, tx)
     except Exception:
         logger.error(
             "Deferred transfer match failed for transaction id=%d",
