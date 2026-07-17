@@ -251,23 +251,10 @@ export default function TransactionsSection() {
                       )}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-medium">
                           {tx.sender}
                         </span>
-                        {tx.bank_name && (
-                          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground">
-                            {tx.bank_name}
-                          </span>
-                        )}
-                        {tx.bank_account_type === "credit" && (
-                          <span
-                            className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                            title="Credit card — excluded from bank balance"
-                          >
-                            Credit
-                          </span>
-                        )}
                         {isPaired && (
                           <Link2
                             className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
@@ -281,7 +268,16 @@ export default function TransactionsSection() {
                           />
                         )}
                       </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {tx.bank_name && <>{tx.bank_name} · </>}
+                        {tx.bank_account_type === "credit" && (
+                          <span
+                            className="text-amber-700 dark:text-amber-400"
+                            title="Credit card — excluded from bank balance"
+                          >
+                            Credit ·{" "}
+                          </span>
+                        )}
                         {formatMessageDateTime(tx.date)}
                       </div>
                     </div>
