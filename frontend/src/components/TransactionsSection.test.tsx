@@ -663,13 +663,13 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Amex Card/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Amex Card/).length).toBeGreaterThan(0);
     });
-    // Only the credit row shows the indicator.
-    const indicators = screen.getAllByText(/^Credit ·/);
-    expect(indicators).toHaveLength(1);
+    // Only the credit row shows the desktop badge.
+    const badges = screen.getAllByText("Credit");
+    expect(badges).toHaveLength(1);
     // The deposit row's bank name is present without any Credit indicator.
-    expect(screen.getByText(/BRAC Bank/)).toBeInTheDocument();
+    expect(screen.getAllByText(/BRAC Bank/).length).toBeGreaterThan(0);
   });
 
   it("renders each row with its own currency label", async () => {
