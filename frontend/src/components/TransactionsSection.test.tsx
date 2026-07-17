@@ -614,7 +614,7 @@ describe("TransactionsSection", () => {
     expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
   });
 
-  it("shows a Credit badge for credit-account transactions only", async () => {
+  it("shows a Credit indicator for credit-account transactions only", async () => {
     server.use(
       http.get("/api/transactions", () =>
         HttpResponse.json({
@@ -663,13 +663,13 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getByText("Amex Card")).toBeInTheDocument();
+      expect(screen.getByText(/Amex Card/)).toBeInTheDocument();
     });
-    // Only the credit row shows the badge.
-    const badges = screen.getAllByText("Credit");
-    expect(badges).toHaveLength(1);
-    // The deposit row's bank name is present but has no Credit badge sibling.
-    expect(screen.getByText("BRAC Bank")).toBeInTheDocument();
+    // Only the credit row shows the indicator.
+    const indicators = screen.getAllByText(/^Credit ·/);
+    expect(indicators).toHaveLength(1);
+    // The deposit row's bank name is present without any Credit indicator.
+    expect(screen.getByText(/BRAC Bank/)).toBeInTheDocument();
   });
 
   it("renders each row with its own currency label", async () => {
