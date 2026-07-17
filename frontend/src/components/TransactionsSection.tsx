@@ -186,7 +186,7 @@ export default function TransactionsSection() {
             <div className="text-xs font-medium text-muted-foreground">
               Income
             </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <div className="mt-1 text-xl font-semibold tabular-nums text-emerald-600 sm:text-2xl dark:text-emerald-400">
               {formatNumeric(totals.income)}
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function TransactionsSection() {
             <div className="text-xs font-medium text-muted-foreground">
               Expense
             </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-red-600 dark:text-red-400">
+            <div className="mt-1 text-xl font-semibold tabular-nums text-red-600 sm:text-2xl dark:text-red-400">
               {formatNumeric(totals.expense)}
             </div>
           </div>
@@ -256,13 +256,13 @@ export default function TransactionsSection() {
                           {tx.sender}
                         </span>
                         {tx.bank_name && (
-                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground">
                             {tx.bank_name}
                           </span>
                         )}
                         {tx.bank_account_type === "credit" && (
                           <span
-                            className="rounded-md bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                            className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-200"
                             title="Credit card — excluded from bank balance"
                           >
                             Credit

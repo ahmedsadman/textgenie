@@ -96,7 +96,7 @@ export default function FinancePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-semibold tabular-nums">
+          <p className="text-2xl font-semibold tabular-nums sm:text-3xl">
             {banks.length === 0 ? "—" : formatTotal(banks, currency)}
           </p>
         </CardContent>
@@ -181,11 +181,11 @@ export default function FinancePage() {
                     ) : (
                       <>
                         <p
-                          className={`text-2xl tabular-nums ${
+                          className={
                             bank.last_balance === null
                               ? "text-base text-muted-foreground italic"
-                              : "font-semibold"
-                          }`}
+                              : "text-xl font-semibold tabular-nums sm:text-2xl"
+                          }
                         >
                           {formatBalance(bank.last_balance, currency)}
                         </p>
