@@ -137,7 +137,7 @@ function BillRow({ bill, onUnlink }: BillRowProps) {
           <span className="text-sm font-medium">
             {formatStatementPeriod(bill)}
           </span>
-          <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground">
             {bill.sender}
           </span>
           <Badge variant={paid ? "muted" : "default"}>
