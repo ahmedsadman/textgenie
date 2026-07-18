@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -27,8 +27,10 @@ import BillsSection from "@/components/BillsSection";
 import TransactionsSection from "@/components/TransactionsSection";
 import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
 import { useCurrency } from "@/hooks/queries/useCurrency";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatAmount } from "@/lib/currency";
 import type { Bank, Currency } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function formatBalance(balance: string | null, currency: Currency): string {
   if (balance === null) return "No balance yet";
@@ -70,6 +72,10 @@ export default function FinancePage() {
   const deleteBank = useDeleteBank();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Bank | null>(null);
+  const [banksCollapsed, setBanksCollapsed] = useLocalStorage(
+    "finance.banksCollapsed",
+    false,
+  );
 
   const currency: Currency = currencySettings?.currency ?? "BDT";
 
@@ -104,7 +110,23 @@ export default function FinancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Banks</CardTitle>
+          <CardTitle className="text-2xl">
+            <button
+              type="button"
+              aria-expanded={!banksCollapsed}
+              onClick={() => setBanksCollapsed((v) => !v)}
+              className="-mx-1 flex items-center gap-2 rounded px-1 sm:hidden"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                  banksCollapsed && "-rotate-90",
+                )}
+              />
+              Banks
+            </button>
+            <span className="hidden sm:inline">Banks</span>
+          </CardTitle>
           <CardAction>
             <Button onClick={openAddDialog}>
               <Plus className="h-4 w-4" />
@@ -112,7 +134,12 @@ export default function FinancePage() {
             </Button>
           </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent
+          className={cn(
+            "flex flex-col gap-4",
+            banksCollapsed && "hidden sm:flex",
+          )}
+        >
           {banks.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No banks yet. Add your first bank to start tracking balances from
