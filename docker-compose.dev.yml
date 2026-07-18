@@ -4,6 +4,7 @@ services:
       - "3307:3306"
 
   backend:
+    image: textgenie-backend:dev
     build:
       context: ./backend
       target: dev
@@ -19,6 +20,7 @@ services:
       - app-network
 
   frontend:
+    image: textgenie-frontend:dev
     build:
       context: ./frontend
       target: dev
