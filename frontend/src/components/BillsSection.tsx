@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { useBills, useUnlinkBillPayments } from "@/hooks/queries/useBills";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatAmount } from "@/lib/currency";
 import type { Bank, Bill } from "@/lib/types";
 import { cn, formatMessageDateTime } from "@/lib/utils";
@@ -187,15 +188,40 @@ interface BillsSectionProps {
 }
 
 export default function BillsSection({ banks }: BillsSectionProps) {
+  const [billsCollapsed, setBillsCollapsed] = useLocalStorage(
+    "finance.billsCollapsed",
+    false,
+  );
   const creditCards = banks.filter((b) => b.account_type === "credit");
   if (creditCards.length === 0) return null;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">Credit Card Bills</CardTitle>
+        <CardTitle className="text-2xl">
+          <button
+            type="button"
+            aria-expanded={!billsCollapsed}
+            onClick={() => setBillsCollapsed((v) => !v)}
+            className="-mx-1 flex items-center gap-2 rounded px-1 sm:hidden"
+          >
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                billsCollapsed && "-rotate-90",
+              )}
+            />
+            Credit Card Bills
+          </button>
+          <span className="hidden sm:inline">Credit Card Bills</span>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent
+        className={cn(
+          "flex flex-col gap-3",
+          billsCollapsed && "hidden sm:flex",
+        )}
+      >
         {creditCards.map((card) => (
           <CreditCardBillsCard key={card.id} bank={card} />
         ))}

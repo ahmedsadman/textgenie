@@ -2,7 +2,6 @@ import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpLeft,
-  ChevronDown,
   Link2,
   Loader2,
   Receipt,
@@ -173,14 +172,14 @@ export default function TransactionsSection() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-none bg-transparent py-0 ring-0 sm:rounded-xl sm:bg-card sm:py-4 sm:ring-1">
+      <CardHeader className="px-0 sm:px-4">
         <CardTitle className="text-2xl">Transactions</CardTitle>
         <CardAction>
           <DateRangePicker value={selection} onChange={handleSelectionChange} />
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 px-0 sm:px-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border p-3">
             <div className="text-xs font-medium text-muted-foreground">
@@ -209,7 +208,7 @@ export default function TransactionsSection() {
             No transactions in this range.
           </p>
         ) : (
-          <div className="flex flex-col divide-y rounded-lg border">
+          <div className="flex flex-col divide-y rounded-none border-x-0 border-y sm:rounded-lg sm:border">
             {data.transactions.map((tx) => {
               const isExpanded = expandedTxIds.has(tx.id);
               const ownMessageState = messageStates.get(tx.message_id);
@@ -219,6 +218,15 @@ export default function TransactionsSection() {
                   : undefined;
               const isPaired = tx.paired_with_id !== null;
               const sign = amountSign(tx.type);
+              const typeSelect = (
+                <Select<TransactionType>
+                  value={tx.type}
+                  onChange={(t) => handleTypeChange(tx, t)}
+                  options={TYPE_OPTIONS}
+                  ariaLabel={`Change transaction type (currently ${tx.type})`}
+                  iconOnly
+                />
+              );
               return (
                 <Collapsible
                   key={tx.id}
@@ -240,16 +248,8 @@ export default function TransactionsSection() {
                         toggleExpanded(tx);
                       }
                     }}
-                    className="group flex cursor-pointer items-center justify-between gap-3 p-3 hover:bg-muted/50"
+                    className="flex cursor-pointer items-center justify-between gap-3 p-3 hover:bg-muted/50"
                   >
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-muted-foreground transition-all",
-                        isExpanded
-                          ? "rotate-180 opacity-100"
-                          : "opacity-0 group-hover:opacity-100",
-                      )}
-                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <span className="truncate text-sm font-medium">
@@ -281,18 +281,7 @@ export default function TransactionsSection() {
                           />
                         )}
                       </div>
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                        <span className="sm:hidden">
-                          {tx.bank_name && <>{tx.bank_name} · </>}
-                          {tx.bank_account_type === "credit" && (
-                            <span
-                              className="text-amber-700 dark:text-amber-400"
-                              title="Credit card — excluded from bank balance"
-                            >
-                              Credit ·{" "}
-                            </span>
-                          )}
-                        </span>
+                      <div className="mt-0.5 hidden truncate text-xs text-muted-foreground sm:block">
                         {formatMessageDateTime(tx.date)}
                       </div>
                     </div>
@@ -308,16 +297,25 @@ export default function TransactionsSection() {
                         tx.normalized_currency,
                       )}
                     </div>
-                    <Select<TransactionType>
-                      value={tx.type}
-                      onChange={(t) => handleTypeChange(tx, t)}
-                      options={TYPE_OPTIONS}
-                      ariaLabel={`Change transaction type (currently ${tx.type})`}
-                      iconOnly
-                    />
+                    <span className="hidden sm:inline-flex">{typeSelect}</span>
                   </div>
                   <CollapsibleContent>
-                    <div className="flex flex-col gap-2 border-t bg-muted/30 px-3 py-2.5 pl-10 text-sm text-muted-foreground">
+                    <div className="ml-4 flex flex-col gap-2 border-l-2 border-border bg-muted/30 py-2.5 pr-3 pl-4 text-sm text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2 sm:hidden">
+                        <span className="truncate text-xs">
+                          {tx.bank_name && <>{tx.bank_name} · </>}
+                          {tx.bank_account_type === "credit" && (
+                            <span
+                              className="text-amber-700 dark:text-amber-400"
+                              title="Credit card — excluded from bank balance"
+                            >
+                              Credit ·{" "}
+                            </span>
+                          )}
+                          {formatMessageDateTime(tx.date)}
+                        </span>
+                        {typeSelect}
+                      </div>
                       <MessageBlock
                         sender={tx.sender}
                         state={ownMessageState}
