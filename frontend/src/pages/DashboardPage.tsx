@@ -104,7 +104,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Dashboard</CardTitle>
+          <CardTitle className="text-lg sm:text-2xl">Dashboard</CardTitle>
           <CardDescription>Welcome back, {user.name}!</CardDescription>
         </CardHeader>
       </Card>

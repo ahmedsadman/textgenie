@@ -160,7 +160,7 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Settings</CardTitle>
+          <CardTitle className="text-lg sm:text-2xl">Settings</CardTitle>
           <CardDescription>
             Configure your webhook and message-processing preferences.
           </CardDescription>

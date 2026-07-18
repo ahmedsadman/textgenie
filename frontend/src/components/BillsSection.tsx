@@ -198,7 +198,7 @@ export default function BillsSection({ banks }: BillsSectionProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-lg sm:text-2xl">
           <button
             type="button"
             aria-expanded={!billsCollapsed}
