@@ -30,7 +30,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
+          <CardTitle className="text-lg sm:text-2xl">Login</CardTitle>
           <CardDescription>
             Enter your email and password to sign in
           </CardDescription>

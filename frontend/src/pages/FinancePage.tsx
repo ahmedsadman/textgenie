@@ -110,7 +110,7 @@ export default function FinancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-lg sm:text-2xl">
             <button
               type="button"
               aria-expanded={!banksCollapsed}

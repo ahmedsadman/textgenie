@@ -174,7 +174,7 @@ export default function TransactionsSection() {
   return (
     <Card className="rounded-none bg-transparent py-0 ring-0 sm:rounded-xl sm:bg-card sm:py-4 sm:ring-1">
       <CardHeader className="px-0 sm:px-4">
-        <CardTitle className="text-2xl">Transactions</CardTitle>
+        <CardTitle className="text-lg sm:text-2xl">Transactions</CardTitle>
         <CardAction>
           <DateRangePicker value={selection} onChange={handleSelectionChange} />
         </CardAction>
