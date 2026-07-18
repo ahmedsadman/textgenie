@@ -18,9 +18,7 @@ services:
       - app-network
 
   backend:
-    build:
-      context: ./backend
-      target: production
+    image: ghcr.io/ahmedsadman/textgenie-backend:${IMAGE_TAG:-latest}
     expose:
       - "8000"
     depends_on:
@@ -34,9 +32,7 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: ./frontend
-      target: production
+    image: ghcr.io/ahmedsadman/textgenie-frontend:${IMAGE_TAG:-latest}
     ports:
       - "8080:80"
     depends_on:
