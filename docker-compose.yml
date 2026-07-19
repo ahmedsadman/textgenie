@@ -34,7 +34,7 @@ services:
   frontend:
     image: ghcr.io/ahmedsadman/textgenie-frontend:${IMAGE_TAG:-latest}
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       - backend
     networks:
