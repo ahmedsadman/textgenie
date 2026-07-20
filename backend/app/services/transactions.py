@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import HTTPException
 from sqlalchemy import case, func
@@ -36,14 +37,13 @@ def list_transactions(
     page_size: int,
     from_date: datetime | None,
     to_date: datetime | None,
+    types: list[TransactionType] | None = None,
+    sort_by: Literal["date", "amount"] = "date",
+    sort_dir: Literal["asc", "desc"] = "desc",
 ) -> tuple[list[TransactionResponse], int, TransactionTotals]:
     base = _base_query(db, user, from_date, to_date)
 
-    total = base.with_entities(func.count(Transaction.id)).scalar() or 0
-
-    # Transfers are intentionally excluded from both totals (they are
-    # neither real income nor real expense — just money moving between
-    # the user's own accounts).
+    # Totals scoped to date range only (type filter deliberately ignored); transfers excluded.
     sums = base.with_entities(
         func.coalesce(
             func.sum(
@@ -69,11 +69,21 @@ def list_transactions(
         expense=Decimal(str(sums.expense)),
     )
 
+    filtered = base
+    if types:
+        filtered = filtered.filter(Transaction.type.in_(types))
+
+    total = filtered.with_entities(func.count(Transaction.id)).scalar() or 0
+
+    primary_col = (
+        Transaction.normalized_amount if sort_by == "amount" else Transaction.date
+    )
+    primary_order = primary_col.asc() if sort_dir == "asc" else primary_col.desc()
+
     paired = aliased(Transaction)
     offset = (page - 1) * page_size
     rows = (
-        _base_query(db, user, from_date, to_date)
-        .join(Message, Message.id == Transaction.message_id)
+        filtered.join(Message, Message.id == Transaction.message_id)
         .outerjoin(Bank, Bank.id == Transaction.bank_id)
         .outerjoin(paired, paired.id == Transaction.paired_with_id)
         .with_entities(
@@ -93,7 +103,7 @@ def list_transactions(
             paired.message_id.label("paired_with_message_id"),
             Transaction.bill_id,
         )
-        .order_by(Transaction.date.desc(), Transaction.id.desc())
+        .order_by(primary_order, Transaction.id.desc())
         .offset(offset)
         .limit(page_size)
         .all()

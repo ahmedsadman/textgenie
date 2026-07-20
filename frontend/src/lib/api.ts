@@ -70,6 +70,9 @@ export interface TransactionsQuery {
   page_size: number;
   from_date?: string;
   to_date?: string;
+  types?: TransactionType[];
+  sort_by?: "date" | "amount";
+  sort_dir?: "asc" | "desc";
 }
 
 export interface BillsQuery {

@@ -11,6 +11,8 @@ export interface SelectOption<TValue extends string> {
   icon?: ReactNode;
 }
 
+type SelectVariant = "ghost" | "outline";
+
 interface SelectProps<TValue extends string> {
   value: TValue;
   onChange: (value: TValue) => void;
@@ -21,6 +23,7 @@ interface SelectProps<TValue extends string> {
   iconOnly?: boolean;
   className?: string;
   disabled?: boolean;
+  variant?: SelectVariant;
 }
 
 export function Select<TValue extends string>({
@@ -31,6 +34,7 @@ export function Select<TValue extends string>({
   iconOnly = false,
   className,
   disabled = false,
+  variant = "ghost",
 }: SelectProps<TValue>) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
@@ -54,7 +58,7 @@ export function Select<TValue extends string>({
         <Popover.Trigger
           render={
             <Button
-              variant="ghost"
+              variant={variant}
               size="sm"
               aria-label={ariaLabel ?? selected?.label}
               disabled={disabled}
