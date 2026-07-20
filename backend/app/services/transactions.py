@@ -43,7 +43,7 @@ def list_transactions(
 ) -> tuple[list[TransactionResponse], int, TransactionTotals]:
     base = _base_query(db, user, from_date, to_date)
 
-    # Totals scoped to date range only (type filter deliberately ignored); transfers excluded.
+    # Totals scoped to date range only; type filter ignored; transfers excluded.
     sums = base.with_entities(
         func.coalesce(
             func.sum(
