@@ -728,6 +728,181 @@ describe("TransactionsSection", () => {
     expect(screen.getByText(/−250\.00\sBDT/)).toBeInTheDocument();
   });
 
+  it("sends selected types as repeated params when the type filter is used", async () => {
+    const calls: URLSearchParams[] = [];
+    server.use(
+      http.get("/api/transactions", ({ request }) => {
+        calls.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          transactions: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0", expense: "0" },
+        });
+      }),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    // Default: no types param sent.
+    expect(calls[0].getAll("types")).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: /filter by type/i }));
+    await user.click(await screen.findByRole("button", { name: /^expense$/i }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(1));
+    const last = calls[calls.length - 1];
+    expect(last.getAll("types")).toEqual(["expense"]);
+  });
+
+  it("selecting all three types drops the filter param", async () => {
+    const calls: URLSearchParams[] = [];
+    server.use(
+      http.get("/api/transactions", ({ request }) => {
+        calls.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          transactions: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0", expense: "0" },
+        });
+      }),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+
+    await user.click(screen.getByRole("button", { name: /filter by type/i }));
+    await user.click(await screen.findByRole("button", { name: /^expense$/i }));
+    await user.click(await screen.findByRole("button", { name: /^income$/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /^transfer$/i }),
+    );
+
+    await waitFor(() => {
+      const last = calls[calls.length - 1];
+      expect(last.getAll("types")).toEqual([]);
+    });
+  });
+
+  it("totals cards keep their values when the type filter changes", async () => {
+    const consistentTotals = { income: "1500.00", expense: "250.00" };
+    server.use(
+      http.get("/api/transactions", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const types = params.getAll("types");
+        const filtered =
+          types.length === 0
+            ? sampleTransactions.transactions
+            : sampleTransactions.transactions.filter((t) =>
+                types.includes(t.type),
+              );
+        return HttpResponse.json({
+          transactions: filtered,
+          total: filtered.length,
+          page: 1,
+          page_size: 10,
+          // Backend keeps totals scoped to the date range (not the filter).
+          totals: consistentTotals,
+        });
+      }),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText(/\+1,500\.00\sBDT/)).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /filter by type/i }));
+    await user.click(await screen.findByRole("button", { name: /^expense$/i }));
+
+    // Income row disappears, but the Income totals card still shows 1,500.00.
+    await waitFor(() => {
+      expect(screen.queryByText(/\+1,500\.00\sBDT/)).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("1,500.00")).toBeInTheDocument();
+    expect(screen.getByText("250.00")).toBeInTheDocument();
+  });
+
+  it("sends sort_by=amount and sort_dir=asc when Lowest amount is selected", async () => {
+    const calls: URLSearchParams[] = [];
+    server.use(
+      http.get("/api/transactions", ({ request }) => {
+        calls.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          transactions: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0", expense: "0" },
+        });
+      }),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    // Default sort.
+    expect(calls[0].get("sort_by")).toBe("date");
+    expect(calls[0].get("sort_dir")).toBe("desc");
+
+    await user.click(
+      screen.getByRole("button", { name: /sort transactions/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /lowest amount/i }),
+    );
+
+    await waitFor(() => {
+      const last = calls[calls.length - 1];
+      expect(last.get("sort_by")).toBe("amount");
+      expect(last.get("sort_dir")).toBe("asc");
+    });
+  });
+
+  it("persists the type filter and sort selection to localStorage", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json({
+          transactions: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0", expense: "0" },
+        }),
+      ),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /filter by type/i }));
+    await user.click(await screen.findByRole("button", { name: /^income$/i }));
+
+    await user.click(
+      screen.getByRole("button", { name: /sort transactions/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /highest amount/i }),
+    );
+
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("finance.txTypes") ?? "")).toEqual(
+        ["income"],
+      );
+      expect(localStorage.getItem("finance.txSort")).toBe('"amount-desc"');
+    });
+  });
+
   it("persists the selected preset to localStorage", async () => {
     server.use(
       http.get("/api/transactions", () =>

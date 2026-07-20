@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DBSession
 
+from app.constants import TransactionType
 from app.database import get_db
 from app.models import User
 from app.schemas import (
@@ -22,6 +24,9 @@ def get_transactions(
     page_size: int = Query(20, ge=1, le=100),
     from_date: datetime | None = Query(None),
     to_date: datetime | None = Query(None),
+    types: list[TransactionType] | None = Query(None),
+    sort_by: Literal["date", "amount"] = Query("date"),
+    sort_dir: Literal["asc", "desc"] = Query("desc"),
     user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -32,6 +37,9 @@ def get_transactions(
         page_size=page_size,
         from_date=from_date,
         to_date=to_date,
+        types=types,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     return PaginatedTransactionsResponse(
         transactions=transactions,

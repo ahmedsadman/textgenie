@@ -10,6 +10,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import DateRangePicker from "@/components/DateRangePicker";
 import PaginationNav from "@/components/PaginationNav";
+import TransactionTypeFilter from "@/components/TransactionTypeFilter";
 import {
   Card,
   CardAction,
@@ -32,6 +33,8 @@ import { cn, formatMessageDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 const STORAGE_KEY = "finance.txRange";
+const TYPE_FILTER_STORAGE_KEY = "finance.txTypes";
+const SORT_STORAGE_KEY = "finance.txSort";
 const DEFAULT_SELECTION: DateRangeSelection = {
   presetKey: "last_month",
   customRange: null,
@@ -59,6 +62,25 @@ const TYPE_OPTIONS: SelectOption<TransactionType>[] = [
   },
 ];
 
+type SortKey = "date-desc" | "date-asc" | "amount-desc" | "amount-asc";
+
+const DEFAULT_SORT: SortKey = "date-desc";
+
+const SORT_OPTIONS: SelectOption<SortKey>[] = [
+  { value: "date-desc", label: "Newest first" },
+  { value: "date-asc", label: "Oldest first" },
+  { value: "amount-desc", label: "Highest amount" },
+  { value: "amount-asc", label: "Lowest amount" },
+];
+
+function parseSortKey(key: SortKey): {
+  sort_by: "date" | "amount";
+  sort_dir: "asc" | "desc";
+} {
+  const [by, dir] = key.split("-") as ["date" | "amount", "asc" | "desc"];
+  return { sort_by: by, sort_dir: dir };
+}
+
 function amountSign(type: TransactionType): string {
   if (type === "income") return "+";
   if (type === "expense") return "−";
@@ -81,6 +103,14 @@ export default function TransactionsSection() {
     STORAGE_KEY,
     DEFAULT_SELECTION,
   );
+  const [typeFilter, setTypeFilter] = useLocalStorage<TransactionType[]>(
+    TYPE_FILTER_STORAGE_KEY,
+    [],
+  );
+  const [sortKey, setSortKey] = useLocalStorage<SortKey>(
+    SORT_STORAGE_KEY,
+    DEFAULT_SORT,
+  );
   const [page, setPage] = useState(1);
   const [expandedTxIds, setExpandedTxIds] = useState<Set<number>>(
     () => new Set(),
@@ -92,14 +122,26 @@ export default function TransactionsSection() {
   >(() => new Map());
 
   const resolved = useMemo(() => resolveDateRange(selection), [selection]);
+  const { sort_by, sort_dir } = useMemo(() => parseSortKey(sortKey), [sortKey]);
+  // Empty or all-selected = no filter param.
+  const activeTypes = useMemo(
+    () =>
+      typeFilter.length === 0 || typeFilter.length === TYPE_OPTIONS.length
+        ? undefined
+        : typeFilter,
+    [typeFilter],
+  );
   const queryParams = useMemo(
     () => ({
       page,
       page_size: PAGE_SIZE,
       from_date: resolved.from ?? undefined,
       to_date: resolved.to ?? undefined,
+      types: activeTypes,
+      sort_by,
+      sort_dir,
     }),
-    [page, resolved.from, resolved.to],
+    [page, resolved.from, resolved.to, activeTypes, sort_by, sort_dir],
   );
 
   const { data, isPending } = useTransactions(queryParams);
@@ -168,6 +210,16 @@ export default function TransactionsSection() {
     setPage(1);
   }
 
+  function handleTypeFilterChange(next: TransactionType[]) {
+    setTypeFilter(next);
+    setPage(1);
+  }
+
+  function handleSortChange(next: SortKey) {
+    setSortKey(next);
+    setPage(1);
+  }
+
   const totals = data?.totals ?? { income: "0", expense: "0" };
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
@@ -176,7 +228,28 @@ export default function TransactionsSection() {
       <CardHeader className="px-0 sm:px-4">
         <CardTitle className="text-lg sm:text-2xl">Transactions</CardTitle>
         <CardAction>
-          <DateRangePicker value={selection} onChange={handleSelectionChange} />
+          <div className="flex flex-wrap justify-end gap-2">
+            <TransactionTypeFilter
+              value={typeFilter}
+              onChange={handleTypeFilterChange}
+              options={TYPE_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+                icon: o.icon,
+              }))}
+            />
+            <Select<SortKey>
+              value={sortKey}
+              onChange={handleSortChange}
+              options={SORT_OPTIONS}
+              ariaLabel="Sort transactions"
+              variant="outline"
+            />
+            <DateRangePicker
+              value={selection}
+              onChange={handleSelectionChange}
+            />
+          </div>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-0 sm:px-4">

@@ -533,6 +533,143 @@ def test_patch_transfer_to_expense_clears_bill_id_on_both_sides(
     assert expense_tx.paired_with_id is None
 
 
+def test_get_transactions_filter_by_single_type(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "credit", "income", 100, 1_700_000_000_000),
+            ("BRAC", "debit", "expense", 30, 1_700_000_001_000),
+            ("BRAC", "transfer", "transfer", 200, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get("/api/transactions", params={"types": ["expense"]}).json()
+    assert body["total"] == 1
+    assert [t["type"] for t in body["transactions"]] == ["expense"]
+
+
+def test_get_transactions_filter_by_multiple_types(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "credit", "income", 100, 1_700_000_000_000),
+            ("BRAC", "debit", "expense", 30, 1_700_000_001_000),
+            ("BRAC", "transfer", "transfer", 200, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get(
+        "/api/transactions", params={"types": ["income", "expense"]}
+    ).json()
+    assert body["total"] == 2
+    returned_types = {t["type"] for t in body["transactions"]}
+    assert returned_types == {"income", "expense"}
+
+
+def test_get_transactions_type_filter_leaves_totals_untouched(
+    client, run_message_parse
+):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "credit", "income", 100, 1_700_000_000_000),
+            ("BRAC", "debit", "expense", 30, 1_700_000_001_000),
+        ],
+    )
+
+    body = client.get("/api/transactions", params={"types": ["expense"]}).json()
+    # Row list narrows, but totals still cover the full date range.
+    assert body["total"] == 1
+    assert body["totals"] == {"income": "100.00", "expense": "30.00"}
+
+
+def test_get_transactions_sort_by_amount_desc(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "a", "expense", 10, 1_700_000_000_000),
+            ("BRAC", "b", "expense", 50, 1_700_000_001_000),
+            ("BRAC", "c", "expense", 25, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get(
+        "/api/transactions", params={"sort_by": "amount", "sort_dir": "desc"}
+    ).json()
+    amounts = [t["normalized_amount"] for t in body["transactions"]]
+    assert amounts == ["50.00", "25.00", "10.00"]
+
+
+def test_get_transactions_sort_by_amount_asc(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "a", "expense", 10, 1_700_000_000_000),
+            ("BRAC", "b", "expense", 50, 1_700_000_001_000),
+            ("BRAC", "c", "expense", 25, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get(
+        "/api/transactions", params={"sort_by": "amount", "sort_dir": "asc"}
+    ).json()
+    amounts = [t["normalized_amount"] for t in body["transactions"]]
+    assert amounts == ["10.00", "25.00", "50.00"]
+
+
+def test_get_transactions_sort_by_date_asc(client, run_message_parse):
+    register_and_login(client)
+    _create_bank(client, "BRAC Bank")
+    _seed_transactions(
+        client,
+        run_message_parse,
+        [
+            ("BRAC", "a", "expense", 10, 1_700_000_000_000),
+            ("BRAC", "b", "expense", 20, 1_700_000_001_000),
+            ("BRAC", "c", "expense", 30, 1_700_000_002_000),
+        ],
+    )
+
+    body = client.get(
+        "/api/transactions", params={"sort_by": "date", "sort_dir": "asc"}
+    ).json()
+    dates = [t["date"] for t in body["transactions"]]
+    assert dates == sorted(dates)
+
+
+def test_get_transactions_rejects_invalid_sort_by(client):
+    register_and_login(client)
+    response = client.get("/api/transactions", params={"sort_by": "bogus"})
+    assert response.status_code == 422
+
+
+def test_get_transactions_rejects_invalid_sort_dir(client):
+    register_and_login(client)
+    response = client.get("/api/transactions", params={"sort_dir": "sideways"})
+    assert response.status_code == 422
+
+
+def test_get_transactions_rejects_invalid_type(client):
+    register_and_login(client)
+    response = client.get("/api/transactions", params={"types": ["refund"]})
+    assert response.status_code == 422
+
+
 def test_get_transactions_exposes_bill_id(client, run_message_parse, db):
     register_and_login(client)
     _create_bank(client, "BRAC Bank")
