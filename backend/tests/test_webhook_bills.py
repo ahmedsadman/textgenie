@@ -43,6 +43,7 @@ def test_bill_message_creates_bill_row_no_transaction(client, run_message_parse,
         client,
         run_message_parse,
         _bill_provider(
+            bank="EBL Credit Card",
             normalized_total_due=Decimal("8020.00"),
             original_amount=Decimal("8020.00"),
             original_currency="BDT",
@@ -113,7 +114,7 @@ def test_bill_foreign_currency_stores_original_and_normalized(
     assert bill.normalized_currency == "BDT"
 
 
-def test_bill_bank_id_null_when_sender_does_not_match(client, run_message_parse, db):
+def test_bill_bank_id_null_when_llm_returns_no_bank(client, run_message_parse, db):
     register_and_login(client)
     _create_credit_card(client, name="AMEX", card="9999|1111")
 
@@ -121,6 +122,7 @@ def test_bill_bank_id_null_when_sender_does_not_match(client, run_message_parse,
         client,
         run_message_parse,
         _bill_provider(
+            bank=None,
             normalized_total_due=Decimal("500.00"),
             original_amount=Decimal("500.00"),
             original_currency="BDT",
@@ -138,6 +140,7 @@ def test_duplicate_period_bill_skipped(client, run_message_parse, db):
     register_and_login(client)
     _create_credit_card(client)
     provider = _bill_provider(
+        bank="EBL Credit Card",
         normalized_total_due=Decimal("8020.00"),
         original_amount=Decimal("8020.00"),
         original_currency="BDT",

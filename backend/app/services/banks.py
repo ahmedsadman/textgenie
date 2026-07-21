@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -9,8 +8,6 @@ from sqlalchemy.orm import Session as DBSession
 from app.constants import CREDIT, DEPOSIT, AccountType
 from app.models import Bank, User
 from app.schemas import BankCreateRequest, BankUpdateRequest
-
-logger = logging.getLogger(__name__)
 
 
 def list_banks(db: DBSession, user: User) -> list[Bank]:
@@ -123,31 +120,3 @@ def delete_bank(db: DBSession, user: User, bank_id: int) -> None:
     bank = _get_user_bank_or_404(db, user.id, bank_id)
     db.delete(bank)
     db.commit()
-
-
-def match_bank_by_sender(banks: list[Bank], sender: str) -> Bank | None:
-    if not sender:
-        return None
-    s = sender.strip().lower()
-    if not s:
-        return None
-
-    matches = [
-        b
-        for b in banks
-        if b.account_type == CREDIT
-        and b.name
-        and (b.name.lower() in s or s in b.name.lower())
-    ]
-    if not matches:
-        return None
-
-    matches.sort(key=lambda b: len(b.name), reverse=True)
-    if len(matches) > 1 and len(matches[0].name) == len(matches[1].name):
-        logger.info(
-            "Ambiguous sender->card match for '%s': %s",
-            sender,
-            [b.name for b in matches],
-        )
-        return None
-    return matches[0]
