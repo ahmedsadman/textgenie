@@ -11,7 +11,6 @@ from app.database import SessionLocal
 from app.models import Bank, Bill, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
 from app.services import bill_payment_matcher, metadata_blacklist, transfer_matcher
-from app.services.banks import match_bank_by_sender
 from app.services.categories import DefaultCategory, _categories_filter
 from app.services.llm.base import BillMetadataResult, MetadataResult
 from app.services.llm.provider import get_llm_provider
@@ -56,14 +55,14 @@ def _extract_metadata(
 
 
 def _extract_bill_metadata(
-    content: str, sender: str, normalized_currency: str
+    content: str, sender: str, banks: list[str], normalized_currency: str
 ) -> BillMetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping bill extraction")
         return BillMetadataResult()
     try:
         return get_llm_provider().extract_bill_metadata(
-            content, sender, normalized_currency
+            content, sender, banks, normalized_currency
         )
     except Exception:
         logger.error("LLM bill extraction failed", exc_info=True)
@@ -263,8 +262,23 @@ def _update_bank_balance(
 
 
 def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | None:
+    credit_banks = (
+        db.query(Bank)
+        .filter(Bank.user_id == user.id, Bank.account_type == CREDIT)
+        .all()
+    )
+    if not credit_banks:
+        logger.info(
+            "Message id=%d user has no credit banks; skipping bill extraction",
+            message.id,
+        )
+        return None
+
     metadata = _extract_bill_metadata(
-        message.content, message.sender, user.normalized_currency
+        message.content,
+        message.sender,
+        [b.name for b in credit_banks],
+        user.normalized_currency,
     )
     if metadata.normalized_total_due is None:
         logger.info(
@@ -273,8 +287,7 @@ def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | N
         )
         return None
 
-    banks = db.query(Bank).filter(Bank.user_id == user.id).all()
-    bank = match_bank_by_sender(banks, message.sender)
+    bank = _match_bank(credit_banks, metadata.bank)
     bill = _record_bill(db, user, bank, metadata, message)
     return bill.id if bill else None
 

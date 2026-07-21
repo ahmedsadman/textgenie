@@ -24,6 +24,7 @@ class MetadataResult:
 
 @dataclass
 class BillMetadataResult:
+    bank: str | None = None
     # `normalized_total_due` is the bill amount in the user's normalized currency.
     normalized_total_due: Decimal | None = None
     # Raw amount as printed in the SMS (before conversion). Paired with
@@ -97,20 +98,21 @@ Rules:
 
 
 _BILL_SYSTEM = """\
-You are a credit-card bill statement extractor. Given an SMS message that describes a credit-card bill (a statement / bill message, NOT a payment confirmation), extract the total amount due and the statement period (month and year). Detect the source currency and convert the amount to the user's normalized currency; also report the source-currency amount before conversion.
+You are a credit-card bill statement extractor. The user owns a list of credit-card banks. Given an SMS message that describes a credit-card bill (a statement / bill message, NOT a payment confirmation), identify which of those banks issued the statement (if any), extract the total amount due and the statement period (month and year). Detect the source currency and convert the amount to the user's normalized currency; also report the source-currency amount before conversion.
 The message may be in any language. Interpret based on content meaning regardless of language.
 
-Examples:
-- Normalized currency "BDT", message from "EBL": "Monthly bill 4238****3241 JUL2026; Total Due: BDT 8020.00, Min Due: BDT 500, Last Pmt: 20-JUL-26" -> normalized_total_due: 8020.00, original_amount: 8020.00, original_currency: "BDT", statement_month: 7, statement_year: 2026
-- Normalized currency "BDT", message from "MTB": "Your credit card statement for JULY 2026 is ready. Total outstanding BDT 15,320.50. Minimum payment BDT 800." -> normalized_total_due: 15320.50, original_amount: 15320.50, original_currency: "BDT", statement_month: 7, statement_year: 2026
-- Normalized currency "BDT", message from "CITY": "Statement 07/2026 Total due USD 120.50 Min due USD 25.00" -> normalized_total_due: 13255, original_amount: 120.50, original_currency: "USD", statement_month: 7, statement_year: 2026  (approximate USD->BDT)
-- Normalized currency "BDT", message from "EBL": "Statement Jul'26 dues 5000 BDT" -> normalized_total_due: 5000, original_amount: 5000, original_currency: "BDT", statement_month: 7, statement_year: 2026
-- Normalized currency "BDT", message from "AMEX": "Your card statement is ready. Total due AED 500." -> normalized_total_due: 16500, original_amount: 500, original_currency: "AED", statement_month: null, statement_year: null  (approximate AED->BDT; no month/year given)
-- Normalized currency "BDT", message from "EBL": "Payment of 8020.00 received for card 4238***3241." -> normalized_total_due: null, original_amount: null, original_currency: null, statement_month: null, statement_year: null  (this is a payment receipt, not a bill statement)
+Examples (illustrative bank names — always use the bank names provided by the user):
+- Normalized currency "BDT", message from "EBL": "Monthly bill 4238****3241 JUL2026; Total Due: BDT 8020.00, Min Due: BDT 500, Last Pmt: 20-JUL-26" with Banks ["EBL Credit Card", "MTB Visa"] -> bank: "EBL Credit Card", normalized_total_due: 8020.00, original_amount: 8020.00, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "MTB": "Your credit card statement for JULY 2026 is ready. Total outstanding BDT 15,320.50. Minimum payment BDT 800." with Banks ["MTB Visa", "City Bank Amex"] -> bank: "MTB Visa", normalized_total_due: 15320.50, original_amount: 15320.50, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "CITY": "Statement 07/2026 Total due USD 120.50 Min due USD 25.00" with Banks ["City Bank Amex", "EBL Credit Card"] -> bank: "City Bank Amex", normalized_total_due: 13255, original_amount: 120.50, original_currency: "USD", statement_month: 7, statement_year: 2026  (approximate USD->BDT)
+- Normalized currency "BDT", message from "AD-BILLCC": "Your EBL card statement Jul'26 dues 5000 BDT" with Banks ["EBL Credit Card", "MTB Visa"] -> bank: "EBL Credit Card", normalized_total_due: 5000, original_amount: 5000, original_currency: "BDT", statement_month: 7, statement_year: 2026
+- Normalized currency "BDT", message from "AMEX": "Your card statement is ready. Total due AED 500." with Banks ["EBL Credit Card", "MTB Visa"] -> bank: null, normalized_total_due: 16500, original_amount: 500, original_currency: "AED", statement_month: null, statement_year: null  (approximate AED->BDT; no month/year given; no matching bank in user list)
+- Normalized currency "BDT", message from "EBL": "Payment of 8020.00 received for card 4238***3241." with Banks ["EBL Credit Card", "MTB Visa"] -> bank: null, normalized_total_due: null, original_amount: null, original_currency: null, statement_month: null, statement_year: null  (this is a payment receipt, not a bill statement)
 
 Respond with this exact JSON object:
-{"normalized_total_due": <number>|null, "original_amount": <number>|null, "original_currency": "<ISO code>"|null, "statement_month": <1..12>|null, "statement_year": <YYYY>|null}
+{"bank": "<bank_name>"|null, "normalized_total_due": <number>|null, "original_amount": <number>|null, "original_currency": "<ISO code>"|null, "statement_month": <1..12>|null, "statement_year": <YYYY>|null}
 Rules:
+- bank: use a name from the Banks list, exactly as written, or null. Never invent new names. Return null when no bank in the list plausibly matches the sender or message content.
 - normalized_total_due is always expressed in the user's normalized currency. Convert from the source currency if they differ. Approximate rates are acceptable. Plain positive number, no currency symbol, no commas.
 - normalized_total_due must be set only when the SMS clearly describes a credit-card bill/statement with an outstanding amount. Set to null for payment confirmations, promotional messages, or non-bill notifications.
 - original_amount: the same total expressed in the source currency (before conversion). Equal to normalized_total_due when the source currency already matches. Must be set whenever normalized_total_due is set, and null otherwise.
@@ -157,15 +159,19 @@ class LLMProvider(ABC):
         self,
         content: str,
         sender: str,
+        banks: list[str],
         normalized_currency: str,
     ) -> ParsePrompt:
+        banks_str = ", ".join(f'"{b}"' for b in banks)
         contents = (
-            f"The user's normalized currency is "
-            f'"{normalized_currency}". Extract the credit-card bill total '
-            f"and the statement period (month/year) from the message. "
-            f"Convert monetary values to "
-            f'"{normalized_currency}" using approximate rates.\n'
-            f"Normalized currency: {normalized_currency}\n\n"
+            f"The user owns the following credit-card banks and has picked "
+            f'"{normalized_currency}" as their normalized currency. Identify '
+            f"which bank (if any) issued this statement, extract the total "
+            f"amount due and the statement period (month/year), and convert "
+            f'monetary values to "{normalized_currency}" using approximate '
+            f"rates.\n"
+            f"Normalized currency: {normalized_currency}\n"
+            f"Banks: [{banks_str}]\n\n"
             f'Message from "{sender}":\n"{content}"'
         )
         return ParsePrompt(system_instruction=_BILL_SYSTEM, contents=contents)
@@ -198,11 +204,14 @@ class LLMProvider(ABC):
         self,
         content: str,
         sender: str,
+        banks: list[str],
         normalized_currency: str,
     ) -> BillMetadataResult:
-        """Return the bill total + statement period extracted from a bill SMS.
+        """Return the bank + bill total + statement period extracted from a bill SMS.
 
         `normalized_total_due` is already converted to `normalized_currency`;
         `original_amount` + `original_currency` preserve the raw source values.
+        `bank` is validated against the `banks` list and is None when no
+        candidate matches.
         """
         ...

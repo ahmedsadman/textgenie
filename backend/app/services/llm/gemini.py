@@ -141,11 +141,12 @@ class GeminiProvider(LLMProvider):
         self,
         content: str,
         sender: str,
+        banks: list[str],
         normalized_currency: str,
     ) -> BillMetadataResult:
-        prompt = self.build_bill_prompt(content, sender, normalized_currency)
+        prompt = self.build_bill_prompt(content, sender, banks, normalized_currency)
         response_text = self._generate_with_fallback(prompt)
-        return self._parse_bill_response(response_text)
+        return self._parse_bill_response(response_text, banks)
 
     def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
         last_exc: BaseException | None = None
@@ -259,11 +260,14 @@ class GeminiProvider(LLMProvider):
             original_amount=original_amount,
         )
 
-    def _parse_bill_response(self, response_text: str | None) -> BillMetadataResult:
+    def _parse_bill_response(
+        self, response_text: str | None, banks: list[str]
+    ) -> BillMetadataResult:
         if not response_text:
             logger.error("LLM returned empty bill response")
             return BillMetadataResult()
         data = json.loads(response_text)
+        bank = _match_name(data.get("bank"), banks)
         normalized_total_due = _parse_balance(data.get("normalized_total_due"))
         original_amount = _parse_balance(data.get("original_amount"))
         original_currency = _parse_currency(data.get("original_currency"))
@@ -282,8 +286,10 @@ class GeminiProvider(LLMProvider):
             original_currency = None
 
         logger.info(
-            "LLM extracted bill: normalized_total_due=%s, original_amount=%s, "
-            "original_currency=%s, statement_month=%s, statement_year=%s",
+            "LLM extracted bill: bank=%s, normalized_total_due=%s, "
+            "original_amount=%s, original_currency=%s, "
+            "statement_month=%s, statement_year=%s",
+            bank,
             normalized_total_due,
             original_amount,
             original_currency,
@@ -291,6 +297,7 @@ class GeminiProvider(LLMProvider):
             statement_year,
         )
         return BillMetadataResult(
+            bank=bank,
             normalized_total_due=normalized_total_due,
             original_amount=original_amount,
             original_currency=original_currency,
