@@ -119,6 +119,77 @@ def test_extend_unauthenticated(client):
     assert response.status_code == 401
 
 
+def test_update_profile_success(client):
+    register_and_login(client)
+    response = client.patch("/api/auth/me", json={"name": "New Name"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "New Name"
+    assert data["email"] == "test@example.com"
+
+
+def test_update_profile_requires_auth(client):
+    response = client.patch("/api/auth/me", json={"name": "New Name"})
+    assert response.status_code == 401
+
+
+def test_update_profile_empty_name_rejected(client):
+    register_and_login(client)
+    response = client.patch("/api/auth/me", json={"name": ""})
+    assert response.status_code == 422
+
+
+def test_change_password_success(client):
+    register_and_login(client)
+    response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpassword456"},
+    )
+    assert response.status_code == 200
+    assert response.json()["message"] == "Password changed successfully"
+
+    client.post("/api/auth/logout")
+    assert login(client, password="password123").status_code == 401
+    assert login(client, password="newpassword456").status_code == 200
+
+
+def test_change_password_wrong_current(client):
+    register_and_login(client)
+    response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "wrongpassword", "new_password": "newpassword456"},
+    )
+    assert response.status_code == 400
+    assert "Current password is incorrect" in response.json()["detail"]
+
+
+def test_change_password_same_as_current(client):
+    register_and_login(client)
+    response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "password123"},
+    )
+    assert response.status_code == 400
+    assert "differ from current" in response.json()["detail"]
+
+
+def test_change_password_too_short(client):
+    register_and_login(client)
+    response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "short"},
+    )
+    assert response.status_code == 422
+
+
+def test_change_password_requires_auth(client):
+    response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpassword456"},
+    )
+    assert response.status_code == 401
+
+
 def test_delete_expired_sessions(db):
     user = User(
         name="Test",

@@ -94,6 +94,17 @@ export const api = {
 
   getMe: () => client.get<User>("/auth/me").then((r) => r.data),
 
+  updateProfile: (name: string) =>
+    client.patch<User>("/auth/me", { name }).then((r) => r.data),
+
+  changePassword: (current_password: string, new_password: string) =>
+    client
+      .post<{ message: string }>("/auth/change-password", {
+        current_password,
+        new_password,
+      })
+      .then((r) => r.data),
+
   logout: () => client.post<void>("/auth/logout", {}).then((r) => r.data),
 
   getCategories: () =>
