@@ -2,7 +2,34 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  is_admin: boolean;
   created_at: string;
+}
+
+export interface AdminListUsersResponse {
+  users: User[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AdminUsageSummary {
+  lifetime_cost_micros: number;
+  lifetime_tokens: number;
+  last30d_cost_micros: number;
+  last30d_tokens: number;
+}
+
+export interface AdminUsageBucket {
+  bucket_start: string;
+  cost_micros: number;
+  tokens: number;
+}
+
+export interface AdminUserUsageDetailResponse {
+  series: AdminUsageBucket[];
+  message_count: number;
+  bucket: "day" | "week" | "month";
 }
 
 export interface Category {

@@ -2,6 +2,8 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -34,18 +36,34 @@ class User(Base):
     normalized_currency: Mapped[str] = mapped_column(
         String(3), nullable=False, server_default="BDT"
     )
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
 
-    sessions: Mapped[list["Session"]] = relationship(back_populates="user")
-    categories: Mapped[list["Category"]] = relationship(back_populates="user")
-    messages: Mapped[list["Message"]] = relationship(back_populates="user")
-    banks: Mapped[list["Bank"]] = relationship(back_populates="user")
-    transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")
-    bills: Mapped[list["Bill"]] = relationship(back_populates="user")
+    sessions: Mapped[list["Session"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    categories: Mapped[list["Category"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    banks: Mapped[list["Bank"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    bills: Mapped[list["Bill"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    llm_usage: Mapped[list["LLMUsage"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(Base):
@@ -240,3 +258,39 @@ class Bill(Base):
     linked_transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="bill"
     )
+
+
+class LLMUsage(Base):
+    __tablename__ = "llm_usage"
+    __table_args__ = (Index("ix_llm_usage_user_date", "user_id", "usage_date"),)
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    usage_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model: Mapped[str] = mapped_column(String(64), primary_key=True)
+    input_tokens: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="0"
+    )
+    cached_input_tokens: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="0"
+    )
+    output_tokens: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="0"
+    )
+    request_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    cost_micros: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="0"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="llm_usage")

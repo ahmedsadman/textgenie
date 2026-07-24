@@ -7,7 +7,9 @@ from alembic import context
 from app.database import Base
 from app.models import (  # noqa: F401
     Bank,
+    Bill,
     Category,
+    LLMUsage,
     Message,
     Session,
     Transaction,

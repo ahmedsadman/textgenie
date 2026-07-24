@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, model_validator
 
@@ -35,6 +35,7 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    is_admin: bool = False
     created_at: UtcDatetime
 
     model_config = {"from_attributes": True}
@@ -228,3 +229,32 @@ class PaginatedBillsResponse(BaseModel):
 
 class BillUpdateRequest(BaseModel):
     unlink_transaction_ids: list[int] | None = None
+
+
+class AdminListUsersResponse(BaseModel):
+    users: list[UserResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminUsageSummary(BaseModel):
+    lifetime_cost_micros: int
+    lifetime_tokens: int
+    last30d_cost_micros: int
+    last30d_tokens: int
+
+
+class AdminUsageBucket(BaseModel):
+    bucket_start: date
+    cost_micros: int
+    tokens: int
+
+
+BucketSize = Literal["day", "week", "month"]
+
+
+class AdminUserUsageDetailResponse(BaseModel):
+    series: list[AdminUsageBucket]
+    message_count: int
+    bucket: BucketSize

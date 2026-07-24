@@ -8,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 import GuestRoute from "@/components/GuestRoute";
 import { Toaster } from "@/components/ui/sonner";
 import { queryClient } from "@/lib/queryClient";
+import AdminPage from "@/pages/AdminPage";
 import DashboardPage from "@/pages/DashboardPage";
 import FinancePage from "@/pages/FinancePage";
 import LoginPage from "@/pages/LoginPage";
@@ -43,6 +44,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="finance" element={<FinancePage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="admin" element={<AdminPage />} />
           </Route>
         </Routes>
         <Toaster />

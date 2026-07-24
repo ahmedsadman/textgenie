@@ -14,6 +14,7 @@ from app.services import bill_payment_matcher, metadata_blacklist, transfer_matc
 from app.services.categories import DefaultCategory, _categories_filter
 from app.services.llm.base import BillMetadataResult, MetadataResult
 from app.services.llm.provider import get_llm_provider
+from app.services.llm.usage import LLMUsageEvent, record_from_current_session
 
 logger = logging.getLogger(__name__)
 
@@ -28,26 +29,45 @@ def _parse_timestamp(timestamp: int | None) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _categorize(content: str, sender: str, categories: list[str]) -> str | None:
+def _usage_callback(user_id: int):
+    def _cb(event: LLMUsageEvent) -> None:
+        record_from_current_session(user_id, event)
+
+    return _cb
+
+
+def _categorize(
+    content: str, sender: str, categories: list[str], user_id: int
+) -> str | None:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping categorization")
         return None
     try:
-        return get_llm_provider().categorize(content, sender, categories)
+        return get_llm_provider().categorize(
+            content, sender, categories, on_usage=_usage_callback(user_id)
+        )
     except Exception:
         logger.error("LLM categorize failed", exc_info=True)
         return None
 
 
 def _extract_metadata(
-    content: str, sender: str, banks: list[str], normalized_currency: str
+    content: str,
+    sender: str,
+    banks: list[str],
+    normalized_currency: str,
+    user_id: int,
 ) -> MetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping metadata extraction")
         return MetadataResult()
     try:
         return get_llm_provider().extract_metadata(
-            content, sender, banks, normalized_currency
+            content,
+            sender,
+            banks,
+            normalized_currency,
+            on_usage=_usage_callback(user_id),
         )
     except Exception:
         logger.error("LLM metadata extraction failed", exc_info=True)
@@ -55,14 +75,22 @@ def _extract_metadata(
 
 
 def _extract_bill_metadata(
-    content: str, sender: str, banks: list[str], normalized_currency: str
+    content: str,
+    sender: str,
+    banks: list[str],
+    normalized_currency: str,
+    user_id: int,
 ) -> BillMetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping bill extraction")
         return BillMetadataResult()
     try:
         return get_llm_provider().extract_bill_metadata(
-            content, sender, banks, normalized_currency
+            content,
+            sender,
+            banks,
+            normalized_currency,
+            on_usage=_usage_callback(user_id),
         )
     except Exception:
         logger.error("LLM bill extraction failed", exc_info=True)
@@ -152,7 +180,10 @@ def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
     """Categorize the message via LLM and assign category_id on the model."""
     categories = db.query(Category).filter(_categories_filter(message.user_id)).all()
     category_name = _categorize(
-        message.content, message.sender, [c.name for c in categories]
+        message.content,
+        message.sender,
+        [c.name for c in categories],
+        message.user_id,
     )
     if not category_name:
         return None
@@ -191,6 +222,7 @@ def _extract_and_apply_metadata(
         message.sender,
         [b.name for b in banks],
         user.normalized_currency,
+        user.id,
     )
 
     bank = _match_credit_card(banks, message.content) or _match_bank(
@@ -279,6 +311,7 @@ def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | N
         message.sender,
         [b.name for b in credit_banks],
         user.normalized_currency,
+        user.id,
     )
     if metadata.normalized_total_due is None:
         logger.info(

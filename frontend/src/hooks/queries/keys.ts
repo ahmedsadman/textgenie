@@ -1,4 +1,10 @@
-import type { BillsQuery, MessagesQuery, TransactionsQuery } from "@/lib/api";
+import type {
+  AdminListUsersQuery,
+  AdminUserUsageQuery,
+  BillsQuery,
+  MessagesQuery,
+  TransactionsQuery,
+} from "@/lib/api";
 
 export const bankKeys = {
   all: ["banks"] as const,
@@ -35,4 +41,15 @@ export const authKeys = {
 export const currencyKeys = {
   all: ["currency"] as const,
   detail: () => [...currencyKeys.all, "detail"] as const,
+};
+
+export const adminKeys = {
+  all: ["admin"] as const,
+  users: () => [...adminKeys.all, "users"] as const,
+  usersList: (params: AdminListUsersQuery) =>
+    [...adminKeys.users(), params] as const,
+  usageSummary: (userIds: number[]) =>
+    [...adminKeys.all, "usageSummary", userIds] as const,
+  userUsage: (id: number, params: AdminUserUsageQuery) =>
+    [...adminKeys.all, "userUsage", id, params] as const,
 };
