@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import DashboardPage from "@/pages/DashboardPage";
 import FinancePage from "@/pages/FinancePage";
 import LoginPage from "@/pages/LoginPage";
+import ProfilePage from "@/pages/ProfilePage";
 import RegisterPage from "@/pages/RegisterPage";
 import SettingsPage from "@/pages/SettingsPage";
 
@@ -41,6 +42,7 @@ createRoot(document.getElementById("root")!).render(
             <Route index element={<DashboardPage />} />
             <Route path="finance" element={<FinancePage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Routes>
         <Toaster />

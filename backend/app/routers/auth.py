@@ -5,13 +5,16 @@ from app.config import COOKIE_NAME
 from app.database import get_db
 from app.models import User
 from app.schemas import (
+    ChangePasswordRequest,
     LoginRequest,
     MessageResponse,
     RegisterRequest,
+    UpdateProfileRequest,
     UserResponse,
 )
 from app.services.auth import (
     authenticate_user,
+    change_user_password,
     create_session,
     create_user,
     delete_session,
@@ -20,6 +23,7 @@ from app.services.auth import (
     get_session_by_token,
     is_session_expired,
     set_session_cookie,
+    update_user_profile,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -78,3 +82,22 @@ def extend(request: Request, response: Response, db: DBSession = Depends(get_db)
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_me(
+    data: UpdateProfileRequest,
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    return update_user_profile(db, user, data)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    data: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    change_user_password(db, user, data)
+    return MessageResponse(message="Password changed successfully")

@@ -33,6 +33,38 @@ export function useLogin() {
   });
 }
 
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.updateProfile(name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: authKeys.all });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to update profile",
+      );
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: ({
+      currentPassword,
+      newPassword,
+    }: {
+      currentPassword: string;
+      newPassword: string;
+    }) => api.changePassword(currentPassword, newPassword),
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Failed to change password",
+      );
+    },
+  });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({

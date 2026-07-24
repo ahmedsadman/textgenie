@@ -15,7 +15,7 @@ from app.config import (
 )
 from app.database import SessionLocal, get_db
 from app.models import Session, User
-from app.schemas import RegisterRequest
+from app.schemas import ChangePasswordRequest, RegisterRequest, UpdateProfileRequest
 
 
 def _ensure_utc(dt: datetime) -> datetime:
@@ -52,6 +52,26 @@ def create_user(db: DBSession, data: RegisterRequest) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def update_user_profile(db: DBSession, user: User, data: UpdateProfileRequest) -> User:
+    user.name = data.name
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def change_user_password(
+    db: DBSession, user: User, data: ChangePasswordRequest
+) -> None:
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if verify_password(data.new_password, user.password_hash):
+        raise HTTPException(
+            status_code=400, detail="New password must differ from current"
+        )
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
 
 
 def authenticate_user(db: DBSession, email: str, password: str) -> User | None:

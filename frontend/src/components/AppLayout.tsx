@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  User,
   X,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Finance", path: "/finance", icon: Landmark },
+  { label: "Profile", path: "/profile", icon: User },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
