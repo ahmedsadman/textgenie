@@ -2,23 +2,23 @@ import json
 import logging
 import time
 from decimal import Decimal
-from typing import get_args
+from typing import Callable, get_args
 
 import httpx
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
-from app.config import GEMINI_API_KEY
 from app.constants import TransactionType
 from app.services.llm.base import (
     BillMetadataResult,
     LLMProvider,
     MetadataResult,
     ParsePrompt,
-    UsageCallback,
 )
 from app.services.llm.usage import LLMUsageEvent
+
+Recorder = Callable[[LLMUsageEvent], None]
 
 _VALID_TRANSACTION_TYPES = frozenset(get_args(TransactionType))
 
@@ -114,20 +114,20 @@ class GeminiProvider(LLMProvider):
     MAX_CYCLES = 3
     BACKOFF_BASE_SECONDS = 10.0
 
-    def __init__(self):
-        self.client = genai.Client(api_key=GEMINI_API_KEY)
+    def __init__(self, client: genai.Client, recorder: Recorder):
+        self.client = client
+        self.recorder = recorder
 
     def categorize(
         self,
         content: str,
         sender: str,
         categories: list[str],
-        on_usage: UsageCallback | None = None,
     ) -> str | None:
         if not categories:
             return None
         prompt = self.build_categorize_prompt(content, sender, categories)
-        response_text = self._generate_with_fallback(prompt, on_usage)
+        response_text = self._generate_with_fallback(prompt)
         return self._parse_categorize_response(response_text, categories)
 
     def extract_metadata(
@@ -136,12 +136,11 @@ class GeminiProvider(LLMProvider):
         sender: str,
         banks: list[str],
         normalized_currency: str,
-        on_usage: UsageCallback | None = None,
     ) -> MetadataResult:
         if not banks:
             return MetadataResult()
         prompt = self.build_metadata_prompt(content, sender, banks, normalized_currency)
-        response_text = self._generate_with_fallback(prompt, on_usage)
+        response_text = self._generate_with_fallback(prompt)
         return self._parse_metadata_response(response_text, banks)
 
     def extract_bill_metadata(
@@ -150,15 +149,12 @@ class GeminiProvider(LLMProvider):
         sender: str,
         banks: list[str],
         normalized_currency: str,
-        on_usage: UsageCallback | None = None,
     ) -> BillMetadataResult:
         prompt = self.build_bill_prompt(content, sender, banks, normalized_currency)
-        response_text = self._generate_with_fallback(prompt, on_usage)
+        response_text = self._generate_with_fallback(prompt)
         return self._parse_bill_response(response_text, banks)
 
-    def _generate_with_fallback(
-        self, prompt: ParsePrompt, on_usage: UsageCallback | None = None
-    ) -> str | None:
+    def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
         last_exc: BaseException | None = None
         for cycle in range(self.MAX_CYCLES):
             for model in self.MODELS:
@@ -176,19 +172,18 @@ class GeminiProvider(LLMProvider):
                     cached_input_tokens = usage.cached_content_token_count or 0
                     output_tokens = usage.candidates_token_count or 0
                     _track_model_usage(model)
-                    if on_usage is not None:
-                        try:
-                            on_usage(
-                                LLMUsageEvent(
-                                    provider="gemini",
-                                    model=model,
-                                    input_tokens=input_tokens,
-                                    cached_input_tokens=cached_input_tokens,
-                                    output_tokens=output_tokens,
-                                )
+                    try:
+                        self.recorder(
+                            LLMUsageEvent(
+                                provider="gemini",
+                                model=model,
+                                input_tokens=input_tokens,
+                                cached_input_tokens=cached_input_tokens,
+                                output_tokens=output_tokens,
                             )
-                        except Exception:
-                            logger.error("on_usage callback failed", exc_info=True)
+                        )
+                    except Exception:
+                        logger.error("usage recorder failed", exc_info=True)
                     return response.text
                 except Exception as exc:
                     if not _is_retryable(exc):

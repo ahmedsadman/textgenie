@@ -12,9 +12,8 @@ from app.models import Bank, Bill, Category, Message, Transaction, User
 from app.schemas import WebhookPayload
 from app.services import bill_payment_matcher, metadata_blacklist, transfer_matcher
 from app.services.categories import DefaultCategory, _categories_filter
-from app.services.llm.base import BillMetadataResult, MetadataResult
-from app.services.llm.provider import get_llm_provider
-from app.services.llm.usage import LLMUsageEvent, record_from_current_session
+from app.services.llm.base import BillMetadataResult, LLMProvider, MetadataResult
+from app.services.llm.provider import build_provider
 
 logger = logging.getLogger(__name__)
 
@@ -29,68 +28,49 @@ def _parse_timestamp(timestamp: int | None) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _usage_callback(user_id: int):
-    def _cb(event: LLMUsageEvent) -> None:
-        record_from_current_session(user_id, event)
-
-    return _cb
-
-
 def _categorize(
-    content: str, sender: str, categories: list[str], user_id: int
+    provider: LLMProvider | None, content: str, sender: str, categories: list[str]
 ) -> str | None:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping categorization")
         return None
     try:
-        return get_llm_provider().categorize(
-            content, sender, categories, on_usage=_usage_callback(user_id)
-        )
+        return provider.categorize(content, sender, categories)
     except Exception:
         logger.error("LLM categorize failed", exc_info=True)
         return None
 
 
 def _extract_metadata(
+    provider: LLMProvider | None,
     content: str,
     sender: str,
     banks: list[str],
     normalized_currency: str,
-    user_id: int,
 ) -> MetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping metadata extraction")
         return MetadataResult()
     try:
-        return get_llm_provider().extract_metadata(
-            content,
-            sender,
-            banks,
-            normalized_currency,
-            on_usage=_usage_callback(user_id),
-        )
+        return provider.extract_metadata(content, sender, banks, normalized_currency)
     except Exception:
         logger.error("LLM metadata extraction failed", exc_info=True)
         return MetadataResult()
 
 
 def _extract_bill_metadata(
+    provider: LLMProvider | None,
     content: str,
     sender: str,
     banks: list[str],
     normalized_currency: str,
-    user_id: int,
 ) -> BillMetadataResult:
     if not GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY not configured — skipping bill extraction")
         return BillMetadataResult()
     try:
-        return get_llm_provider().extract_bill_metadata(
-            content,
-            sender,
-            banks,
-            normalized_currency,
-            on_usage=_usage_callback(user_id),
+        return provider.extract_bill_metadata(
+            content, sender, banks, normalized_currency
         )
     except Exception:
         logger.error("LLM bill extraction failed", exc_info=True)
@@ -141,7 +121,9 @@ def parse_message(message_id: int) -> None:
             logger.error("Background parsing: user %d not found", message.user_id)
             return
 
-        category = _categorize_and_assign(db, message)
+        provider = build_provider(user.id) if GEMINI_API_KEY else None
+
+        category = _categorize_and_assign(db, message, provider)
         category_name = category.name if category else None
 
         if _sender_blacklisted(message, user):
@@ -149,9 +131,11 @@ def parse_message(message_id: int) -> None:
             return
 
         if category_name == DefaultCategory.TRANSACTION.value:
-            new_transfer_tx_id = _extract_and_apply_metadata(db, message, user)
+            new_transfer_tx_id = _extract_and_apply_metadata(
+                db, message, user, provider
+            )
         elif category_name == DefaultCategory.BILL.value:
-            new_bill_id = _handle_bill_message(db, message, user)
+            new_bill_id = _handle_bill_message(db, message, user, provider)
         else:
             logger.info(
                 "Message id=%d category '%s' does not require extraction",
@@ -176,14 +160,16 @@ def parse_message(message_id: int) -> None:
         bill_payment_matcher.schedule_bill_payment_match(new_bill_id)
 
 
-def _categorize_and_assign(db: DBSession, message: Message) -> Category | None:
+def _categorize_and_assign(
+    db: DBSession, message: Message, provider: LLMProvider | None
+) -> Category | None:
     """Categorize the message via LLM and assign category_id on the model."""
     categories = db.query(Category).filter(_categories_filter(message.user_id)).all()
     category_name = _categorize(
+        provider,
         message.content,
         message.sender,
         [c.name for c in categories],
-        message.user_id,
     )
     if not category_name:
         return None
@@ -206,7 +192,7 @@ def _sender_blacklisted(message: Message, user: User) -> bool:
 
 
 def _extract_and_apply_metadata(
-    db: DBSession, message: Message, user: User
+    db: DBSession, message: Message, user: User, provider: LLMProvider | None
 ) -> int | None:
     """Return the new transaction id if it was a transfer (for deferred matching)."""
     banks = db.query(Bank).filter(Bank.user_id == user.id).all()
@@ -218,11 +204,11 @@ def _extract_and_apply_metadata(
         return None
 
     metadata = _extract_metadata(
+        provider,
         message.content,
         message.sender,
         [b.name for b in banks],
         user.normalized_currency,
-        user.id,
     )
 
     bank = _match_credit_card(banks, message.content) or _match_bank(
@@ -293,7 +279,9 @@ def _update_bank_balance(
     )
 
 
-def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | None:
+def _handle_bill_message(
+    db: DBSession, message: Message, user: User, provider: LLMProvider | None
+) -> int | None:
     credit_banks = (
         db.query(Bank)
         .filter(Bank.user_id == user.id, Bank.account_type == CREDIT)
@@ -307,11 +295,11 @@ def _handle_bill_message(db: DBSession, message: Message, user: User) -> int | N
         return None
 
     metadata = _extract_bill_metadata(
+        provider,
         message.content,
         message.sender,
         [b.name for b in credit_banks],
         user.normalized_currency,
-        user.id,
     )
     if metadata.normalized_total_due is None:
         logger.info(

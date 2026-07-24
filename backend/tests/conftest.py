@@ -127,7 +127,7 @@ def create_message(client, token, sender="1234", content="hello", timestamp=None
 def run_message_parse():
     def _run(message_id, provider):
         with (
-            patch("app.services.webhook.get_llm_provider", return_value=provider),
+            patch("app.services.webhook.build_provider", return_value=provider),
             patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
             patch("app.services.webhook.SessionLocal", TestSessionLocal),
             patch("app.services.llm.usage.recorder.SessionLocal", TestSessionLocal),
