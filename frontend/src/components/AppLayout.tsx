@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Shield,
   User,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { label: "Finance", path: "/finance", icon: Landmark },
   { label: "Profile", path: "/profile", icon: User },
   { label: "Settings", path: "/settings", icon: Settings },
+  { label: "Admin", path: "/admin", icon: Shield, adminOnly: true },
 ];
 
 export default function AppLayout() {
@@ -76,23 +78,27 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 p-2">
-          {NAV_ITEMS.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  buttonVariants({ variant: isActive ? "secondary" : "ghost" }),
-                  "h-10 w-full justify-start gap-3 text-base",
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </Link>
-            );
-          })}
+          {NAV_ITEMS.filter((item) => !item.adminOnly || user.is_admin).map(
+            (item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    buttonVariants({
+                      variant: isActive ? "secondary" : "ghost",
+                    }),
+                    "h-10 w-full justify-start gap-3 text-base",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            },
+          )}
         </nav>
 
         <div className="border-t p-2">

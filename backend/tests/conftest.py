@@ -130,6 +130,7 @@ def run_message_parse():
             patch("app.services.webhook.get_llm_provider", return_value=provider),
             patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
             patch("app.services.webhook.SessionLocal", TestSessionLocal),
+            patch("app.services.llm.usage.recorder.SessionLocal", TestSessionLocal),
         ):
             parse_message(message_id)
 

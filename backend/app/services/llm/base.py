@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Callable
 
 from app.constants import TransactionType
+from app.services.llm.usage import LLMUsageEvent
+
+UsageCallback = Callable[[LLMUsageEvent], None]
 
 
 @dataclass
@@ -178,7 +182,11 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def categorize(
-        self, content: str, sender: str, categories: list[str]
+        self,
+        content: str,
+        sender: str,
+        categories: list[str],
+        on_usage: UsageCallback | None = None,
     ) -> str | None:
         """Return the matching category name, or None if no category fits."""
         ...
@@ -190,6 +198,7 @@ class LLMProvider(ABC):
         sender: str,
         banks: list[str],
         normalized_currency: str,
+        on_usage: UsageCallback | None = None,
     ) -> MetadataResult:
         """Return the bank + balance + amount extracted from the message.
 
@@ -206,6 +215,7 @@ class LLMProvider(ABC):
         sender: str,
         banks: list[str],
         normalized_currency: str,
+        on_usage: UsageCallback | None = None,
     ) -> BillMetadataResult:
         """Return the bank + bill total + statement period extracted from a bill SMS.
 

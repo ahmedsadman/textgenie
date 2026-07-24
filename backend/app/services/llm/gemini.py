@@ -16,7 +16,9 @@ from app.services.llm.base import (
     LLMProvider,
     MetadataResult,
     ParsePrompt,
+    UsageCallback,
 )
+from app.services.llm.usage import LLMUsageEvent
 
 _VALID_TRANSACTION_TYPES = frozenset(get_args(TransactionType))
 
@@ -116,12 +118,16 @@ class GeminiProvider(LLMProvider):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def categorize(
-        self, content: str, sender: str, categories: list[str]
+        self,
+        content: str,
+        sender: str,
+        categories: list[str],
+        on_usage: UsageCallback | None = None,
     ) -> str | None:
         if not categories:
             return None
         prompt = self.build_categorize_prompt(content, sender, categories)
-        response_text = self._generate_with_fallback(prompt)
+        response_text = self._generate_with_fallback(prompt, on_usage)
         return self._parse_categorize_response(response_text, categories)
 
     def extract_metadata(
@@ -130,11 +136,12 @@ class GeminiProvider(LLMProvider):
         sender: str,
         banks: list[str],
         normalized_currency: str,
+        on_usage: UsageCallback | None = None,
     ) -> MetadataResult:
         if not banks:
             return MetadataResult()
         prompt = self.build_metadata_prompt(content, sender, banks, normalized_currency)
-        response_text = self._generate_with_fallback(prompt)
+        response_text = self._generate_with_fallback(prompt, on_usage)
         return self._parse_metadata_response(response_text, banks)
 
     def extract_bill_metadata(
@@ -143,12 +150,15 @@ class GeminiProvider(LLMProvider):
         sender: str,
         banks: list[str],
         normalized_currency: str,
+        on_usage: UsageCallback | None = None,
     ) -> BillMetadataResult:
         prompt = self.build_bill_prompt(content, sender, banks, normalized_currency)
-        response_text = self._generate_with_fallback(prompt)
+        response_text = self._generate_with_fallback(prompt, on_usage)
         return self._parse_bill_response(response_text, banks)
 
-    def _generate_with_fallback(self, prompt: ParsePrompt) -> str | None:
+    def _generate_with_fallback(
+        self, prompt: ParsePrompt, on_usage: UsageCallback | None = None
+    ) -> str | None:
         last_exc: BaseException | None = None
         for cycle in range(self.MAX_CYCLES):
             for model in self.MODELS:
@@ -162,14 +172,23 @@ class GeminiProvider(LLMProvider):
                         ),
                     )
                     usage = response.usage_metadata
-                    logger.info(
-                        "LLM response: model=%s, input=%s, cached=%s, output=%s",
-                        model,
-                        usage.prompt_token_count,
-                        usage.cached_content_token_count,
-                        usage.candidates_token_count,
-                    )
+                    input_tokens = usage.prompt_token_count or 0
+                    cached_input_tokens = usage.cached_content_token_count or 0
+                    output_tokens = usage.candidates_token_count or 0
                     _track_model_usage(model)
+                    if on_usage is not None:
+                        try:
+                            on_usage(
+                                LLMUsageEvent(
+                                    provider="gemini",
+                                    model=model,
+                                    input_tokens=input_tokens,
+                                    cached_input_tokens=cached_input_tokens,
+                                    output_tokens=output_tokens,
+                                )
+                            )
+                        except Exception:
+                            logger.error("on_usage callback failed", exc_info=True)
                     return response.text
                 except Exception as exc:
                     if not _is_retryable(exc):

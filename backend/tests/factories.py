@@ -155,19 +155,38 @@ def make_mock_provider(
     md = metadata if metadata is not None else MetadataResult()
     bill_md = bill_metadata if bill_metadata is not None else BillMetadataResult()
 
+    def _emit_usage(kwargs):
+        cb = kwargs.get("on_usage")
+        if cb is None:
+            return
+        from app.services.llm.usage import LLMUsageEvent
+
+        cb(
+            LLMUsageEvent(
+                provider="gemini",
+                model="gemini-2.5-flash-lite",
+                input_tokens=100,
+                cached_input_tokens=0,
+                output_tokens=50,
+            )
+        )
+
     def _categorize(self, *a, **k):
         if categorize_raises is not None:
             raise categorize_raises
+        _emit_usage(k)
         return category
 
     def _extract(self, *a, **k):
         if extract_raises is not None:
             raise extract_raises
+        _emit_usage(k)
         return md
 
     def _extract_bill(self, *a, **k):
         if extract_bill_raises is not None:
             raise extract_bill_raises
+        _emit_usage(k)
         return bill_md
 
     return type(

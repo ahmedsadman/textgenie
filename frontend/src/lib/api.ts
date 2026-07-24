@@ -2,6 +2,9 @@ import axios from "axios";
 
 import type {
   AccountType,
+  AdminListUsersResponse,
+  AdminUsageSummary,
+  AdminUserUsageDetailResponse,
   Bank,
   Bill,
   Category,
@@ -81,6 +84,17 @@ export interface BillsQuery {
   bank_id?: number;
   from_date?: string;
   to_date?: string;
+}
+
+export interface AdminListUsersQuery {
+  page: number;
+  page_size: number;
+}
+
+export interface AdminUserUsageQuery {
+  from?: string;
+  to?: string;
+  bucket?: "day" | "week" | "month";
 }
 
 export const api = {
@@ -187,4 +201,24 @@ export const api = {
     client
       .patch<Bill>(`/bills/${id}`, { unlink_transaction_ids: transaction_ids })
       .then((r) => r.data),
+
+  adminListUsers: (params: AdminListUsersQuery) =>
+    client
+      .get<AdminListUsersResponse>("/admin/users", { params })
+      .then((r) => r.data),
+
+  adminUsageSummary: (user_ids: number[]) =>
+    client
+      .get<Record<string, AdminUsageSummary>>("/admin/usage/summary", {
+        params: { user_ids: user_ids.join(",") },
+      })
+      .then((r) => r.data),
+
+  adminUserUsage: (id: number, params: AdminUserUsageQuery) =>
+    client
+      .get<AdminUserUsageDetailResponse>(`/admin/users/${id}/usage`, { params })
+      .then((r) => r.data),
+
+  adminDeleteUser: (id: number) =>
+    client.delete<void>(`/admin/users/${id}`).then((r) => r.data),
 };
