@@ -37,18 +37,14 @@ def _api_error(code, message="boom"):
 @pytest.fixture
 def make_provider():
     def _make(response_text=None, side_effect=None):
-        with (
-            patch("app.services.llm.gemini.GEMINI_API_KEY", "fake-key"),
-            patch("app.services.llm.gemini.genai"),
-        ):
-            provider = GeminiProvider()
+        mock_client = MagicMock()
         if side_effect is not None:
-            provider.client.models.generate_content = MagicMock(side_effect=side_effect)
+            mock_client.models.generate_content = MagicMock(side_effect=side_effect)
         else:
-            provider.client.models.generate_content = MagicMock(
+            mock_client.models.generate_content = MagicMock(
                 return_value=_make_response(response_text)
             )
-        return provider
+        return GeminiProvider(client=mock_client, recorder=lambda _event: None)
 
     return _make
 

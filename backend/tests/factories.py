@@ -155,13 +155,10 @@ def make_mock_provider(
     md = metadata if metadata is not None else MetadataResult()
     bill_md = bill_metadata if bill_metadata is not None else BillMetadataResult()
 
-    def _emit_usage(kwargs):
-        cb = kwargs.get("on_usage")
-        if cb is None:
-            return
+    def _emit_usage(self):
         from app.services.llm.usage import LLMUsageEvent
 
-        cb(
+        self.recorder(
             LLMUsageEvent(
                 provider="gemini",
                 model="gemini-2.5-flash-lite",
@@ -174,22 +171,22 @@ def make_mock_provider(
     def _categorize(self, *a, **k):
         if categorize_raises is not None:
             raise categorize_raises
-        _emit_usage(k)
+        _emit_usage(self)
         return category
 
     def _extract(self, *a, **k):
         if extract_raises is not None:
             raise extract_raises
-        _emit_usage(k)
+        _emit_usage(self)
         return md
 
     def _extract_bill(self, *a, **k):
         if extract_bill_raises is not None:
             raise extract_bill_raises
-        _emit_usage(k)
+        _emit_usage(self)
         return bill_md
 
-    return type(
+    cls = type(
         "MockProvider",
         (),
         {
@@ -197,4 +194,7 @@ def make_mock_provider(
             "extract_metadata": _extract,
             "extract_bill_metadata": _extract_bill,
         },
-    )()
+    )
+    instance = cls()
+    instance.recorder = lambda _event: None
+    return instance

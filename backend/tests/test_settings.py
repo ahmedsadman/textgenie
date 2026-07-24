@@ -119,7 +119,7 @@ def test_put_currency_change_clears_bank_balances(client):
         ),
     )
     with (
-        patch("app.services.webhook.get_llm_provider", return_value=provider),
+        patch("app.services.webhook.build_provider", return_value=provider),
         patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
         patch("app.services.webhook.SessionLocal", TestSessionLocal),
     ):
@@ -161,7 +161,7 @@ def test_put_currency_same_value_does_not_clear_balances(client):
         ),
     )
     with (
-        patch("app.services.webhook.get_llm_provider", return_value=provider),
+        patch("app.services.webhook.build_provider", return_value=provider),
         patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
         patch("app.services.webhook.SessionLocal", TestSessionLocal),
     ):
@@ -198,7 +198,7 @@ def test_put_currency_does_not_mutate_existing_transactions(client):
         ),
     )
     with (
-        patch("app.services.webhook.get_llm_provider", return_value=provider),
+        patch("app.services.webhook.build_provider", return_value=provider),
         patch("app.services.webhook.GEMINI_API_KEY", "fake-key"),
         patch("app.services.webhook.SessionLocal", TestSessionLocal),
     ):

@@ -122,7 +122,7 @@ def test_parse_message_skips_llm_in_testsuite(client):
     message_id = client.get("/api/messages").json()["messages"][0]["id"]
 
     with (
-        patch("app.services.webhook.get_llm_provider") as mock_get_provider,
+        patch("app.services.webhook.build_provider") as mock_get_provider,
         patch("app.services.webhook.SessionLocal", TestSessionLocal),
     ):
         parse_message(message_id)
