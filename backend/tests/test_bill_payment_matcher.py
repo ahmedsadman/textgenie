@@ -121,7 +121,73 @@ def test_amount_mismatch_skipped(db, at):
     bill = make_bill(
         db, user, bank=card, normalized_total_due="8020.00", received_at=at(0)
     )
-    make_transaction(db, user, amount="8019.99", type="transfer", date=at(5), bank=card)
+    make_transaction(db, user, amount="8018.99", type="transfer", date=at(5), bank=card)
+
+    assert find_and_link_payment_for_bill(db, bill) is None
+    db.refresh(bill)
+    assert bill.paid_at is None
+
+
+def test_within_tolerance_forward_matched(db, at):
+    user = make_user(db)
+    card = _credit_card(db, user)
+    bill = make_bill(
+        db, user, bank=card, normalized_total_due="11235.50", received_at=at(0)
+    )
+    tx = make_transaction(
+        db, user, amount="11236.00", type="transfer", date=at(2), bank=card
+    )
+
+    result = find_and_link_payment_for_bill(db, bill)
+    assert result is not None
+    assert result.id == tx.id
+    db.refresh(bill)
+    db.refresh(tx)
+    assert bill.paid_at == tx.date
+    assert tx.bill_id == bill.id
+
+
+def test_within_tolerance_reverse_matched(db, at):
+    user = make_user(db)
+    card = _credit_card(db, user)
+    tx = make_transaction(
+        db, user, amount="11236.00", type="transfer", date=at(3), bank=card
+    )
+    bill = make_bill(
+        db, user, bank=card, normalized_total_due="11235.50", received_at=at(0)
+    )
+
+    result = find_and_link_bill_for_payment(db, tx)
+    assert result is not None
+    assert result.id == bill.id
+    db.refresh(bill)
+    db.refresh(tx)
+    assert bill.paid_at == tx.date
+    assert tx.bill_id == bill.id
+
+
+def test_boundary_exact_tolerance_matched(db, at):
+    user = make_user(db)
+    card = _credit_card(db, user)
+    bill = make_bill(
+        db, user, bank=card, normalized_total_due="8020.00", received_at=at(0)
+    )
+    tx = make_transaction(
+        db, user, amount="8021.00", type="transfer", date=at(1), bank=card
+    )
+
+    result = find_and_link_payment_for_bill(db, bill)
+    assert result is not None
+    assert result.id == tx.id
+
+
+def test_boundary_just_outside_tolerance_skipped(db, at):
+    user = make_user(db)
+    card = _credit_card(db, user)
+    bill = make_bill(
+        db, user, bank=card, normalized_total_due="8020.00", received_at=at(0)
+    )
+    make_transaction(db, user, amount="8021.01", type="transfer", date=at(1), bank=card)
 
     assert find_and_link_payment_for_bill(db, bill) is None
     db.refresh(bill)
