@@ -16,9 +16,11 @@ Two entry points, one algorithm:
   it pairs a credit-card transfer; searches recent unpaired Bills on
   that card.
 
-Constants are exact-amount and a 45-day window to cover a full statement
-cycle plus late-payer slack. Ties are resolved by closest-in-time-after
-the bill message; genuine ties are logged and skipped.
+Constants allow a ±1.00 amount tolerance (matches transfer pairing
+tolerance for rounding drift on fractional bills — e.g. bill 11235.50
+paid as 11236) and a 45-day window to cover a full statement cycle plus
+late-payer slack. Ties are resolved by closest-in-time-after the bill
+message; genuine ties are logged and skipped.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from app.models import Bill, Message, Transaction
 
 logger = logging.getLogger(__name__)
 
-BILL_PAYMENT_AMOUNT_TOLERANCE = Decimal("0.00")
+BILL_PAYMENT_AMOUNT_TOLERANCE = Decimal("1.00")
 BILL_PAYMENT_MATCH_WINDOW = timedelta(days=45)
 BILL_PAYMENT_MATCH_DELAY_SECONDS = 600  # mirrors transfer_matcher
 
