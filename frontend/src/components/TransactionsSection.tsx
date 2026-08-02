@@ -5,12 +5,14 @@ import {
   Link2,
   Loader2,
   Receipt,
+  RotateCcw,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import DateRangePicker from "@/components/DateRangePicker";
 import PaginationNav from "@/components/PaginationNav";
 import TransactionTypeFilter from "@/components/TransactionTypeFilter";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -36,7 +38,7 @@ const STORAGE_KEY = "finance.txRange";
 const TYPE_FILTER_STORAGE_KEY = "finance.txTypes";
 const SORT_STORAGE_KEY = "finance.txSort";
 const DEFAULT_SELECTION: DateRangeSelection = {
-  presetKey: "last_month",
+  presetKey: "this_month",
   customRange: null,
 };
 
@@ -220,6 +222,19 @@ export default function TransactionsSection() {
     setPage(1);
   }
 
+  const isDefaultFilters =
+    selection.presetKey === DEFAULT_SELECTION.presetKey &&
+    selection.customRange === null &&
+    sortKey === DEFAULT_SORT &&
+    typeFilter.length === 0;
+
+  function handleReset() {
+    setSelection(DEFAULT_SELECTION);
+    setTypeFilter([]);
+    setSortKey(DEFAULT_SORT);
+    setPage(1);
+  }
+
   const totals = data?.totals ?? { income: "0", expense: "0" };
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
@@ -229,6 +244,17 @@ export default function TransactionsSection() {
         <CardTitle className="text-lg sm:text-2xl">Transactions</CardTitle>
         <CardAction>
           <div className="flex flex-wrap justify-end gap-2">
+            {!isDefaultFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                aria-label="Reset filters to default"
+              >
+                <RotateCcw />
+                Reset
+              </Button>
+            )}
             <TransactionTypeFilter
               value={typeFilter}
               onChange={handleTypeFilterChange}
@@ -281,7 +307,7 @@ export default function TransactionsSection() {
             No transactions in this range.
           </p>
         ) : (
-          <div className="flex flex-col divide-y rounded-none border-x-0 border-y sm:rounded-lg sm:border">
+          <div className="flex flex-col divide-y border-y">
             {data.transactions.map((tx) => {
               const isExpanded = expandedTxIds.has(tx.id);
               const ownMessageState = messageStates.get(tx.message_id);
