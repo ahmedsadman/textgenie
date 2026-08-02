@@ -139,7 +139,7 @@ describe("TransactionsSection", () => {
     });
   });
 
-  it("sends a from_date for the default Last month preset", async () => {
+  it("sends a from_date for the default This month preset", async () => {
     let receivedParams: URLSearchParams | null = null;
     server.use(
       http.get("/api/transactions", ({ request }) => {
@@ -928,5 +928,64 @@ describe("TransactionsSection", () => {
       const stored = JSON.parse(localStorage.getItem("finance.txRange") ?? "");
       expect(stored.presetKey).toBe("last_7_days");
     });
+  });
+
+  it("resets filters to defaults with the Reset button", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json({
+          transactions: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          totals: { income: "0", expense: "0" },
+        }),
+      ),
+    );
+
+    renderWithQueryClient(<TransactionsSection />);
+    const user = userEvent.setup();
+
+    // No Reset button while everything is at its default.
+    expect(
+      screen.queryByRole("button", { name: /reset filters to default/i }),
+    ).not.toBeInTheDocument();
+
+    // Change sort, date range, and type filter away from defaults.
+    await user.click(
+      screen.getByRole("button", { name: /sort transactions/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /oldest first/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /select date range/i }),
+    );
+    await user.click(screen.getByText("Last 7 days"));
+    await user.click(screen.getByRole("button", { name: /filter by type/i }));
+    await user.click(await screen.findByRole("button", { name: /^income$/i }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("finance.txSort")).toBe('"date-asc"');
+    });
+
+    // Reset button now visible; clicking it restores defaults.
+    await user.click(
+      screen.getByRole("button", { name: /reset filters to default/i }),
+    );
+
+    await waitFor(() => {
+      expect(localStorage.getItem("finance.txSort")).toBe('"date-desc"');
+      expect(JSON.parse(localStorage.getItem("finance.txTypes") ?? "")).toEqual(
+        [],
+      );
+      const range = JSON.parse(localStorage.getItem("finance.txRange") ?? "");
+      expect(range.presetKey).toBe("this_month");
+    });
+
+    // Reset button disappears once back at defaults.
+    expect(
+      screen.queryByRole("button", { name: /reset filters to default/i }),
+    ).not.toBeInTheDocument();
   });
 });

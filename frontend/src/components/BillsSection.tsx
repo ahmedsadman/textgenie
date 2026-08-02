@@ -64,8 +64,8 @@ function CreditCardBillsCard({ bank }: CreditCardBillsCardProps) {
   const bills = data?.bills ?? [];
 
   return (
-    <Card className="gap-3 py-4">
-      <CardHeader
+    <div>
+      <div
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
@@ -76,49 +76,47 @@ function CreditCardBillsCard({ bank }: CreditCardBillsCardProps) {
             setExpanded((v) => !v);
           }
         }}
-        className="cursor-pointer select-none"
+        className="flex cursor-pointer items-center gap-2 truncate py-3 font-semibold select-none"
       >
-        <CardTitle className="flex items-center gap-2 truncate">
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-              expanded ? "rotate-0" : "-rotate-90",
-            )}
-          />
-          <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate">{bank.name}</span>
-          <Badge variant="muted">{bills.length}</Badge>
-        </CardTitle>
-      </CardHeader>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            expanded ? "rotate-0" : "-rotate-90",
+          )}
+        />
+        <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{bank.name}</span>
+        <Badge variant="muted">{bills.length}</Badge>
+      </div>
       <Collapsible open={expanded}>
         <CollapsibleContent>
-          <CardContent className="flex flex-col gap-2">
-            {isPending ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : bills.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">
-                No bills yet for this card.
-              </p>
-            ) : (
-              <ul className="divide-y rounded-md border">
-                {bills.map((bill) => (
-                  <BillRow
-                    key={bill.id}
-                    bill={bill}
-                    onUnlink={() =>
-                      unlink.mutate({
-                        billId: bill.id,
-                        transactionIds: bill.linked_transaction_ids,
-                      })
-                    }
-                  />
-                ))}
-              </ul>
-            )}
-          </CardContent>
+          {isPending ? (
+            <p className="pb-3 pl-6 text-sm text-muted-foreground">
+              Loading...
+            </p>
+          ) : bills.length === 0 ? (
+            <p className="pb-3 pl-6 text-sm text-muted-foreground italic">
+              No bills yet for this card.
+            </p>
+          ) : (
+            <ul className="divide-y border-t pl-6">
+              {bills.map((bill) => (
+                <BillRow
+                  key={bill.id}
+                  bill={bill}
+                  onUnlink={() =>
+                    unlink.mutate({
+                      billId: bill.id,
+                      transactionIds: bill.linked_transaction_ids,
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          )}
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </div>
   );
 }
 
@@ -141,7 +139,7 @@ function BillRow({ bill, onUnlink }: BillRowProps) {
           <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground">
             {bill.sender}
           </span>
-          <Badge variant={paid ? "muted" : "default"}>
+          <Badge variant={paid ? "success" : "default"}>
             {paid ? "Paid" : "Due"}
           </Badge>
         </div>
@@ -218,7 +216,7 @@ export default function BillsSection({ banks }: BillsSectionProps) {
       </CardHeader>
       <CardContent
         className={cn(
-          "flex flex-col gap-3",
+          "flex flex-col divide-y",
           billsCollapsed && "hidden sm:flex",
         )}
       >
