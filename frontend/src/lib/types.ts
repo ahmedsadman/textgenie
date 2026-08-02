@@ -140,3 +140,13 @@ export interface PaginatedTransactions {
   page_size: number;
   totals: TransactionTotals;
 }
+
+export interface MonthlySummaryBucket {
+  month_start: string; // YYYY-MM-DD (first of month)
+  income: string;
+  expense: string;
+}
+
+export interface TransactionSummary {
+  series: MonthlySummaryBucket[];
+}

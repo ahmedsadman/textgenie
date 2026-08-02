@@ -10,10 +10,15 @@ from app.models import User
 from app.schemas import (
     PaginatedTransactionsResponse,
     TransactionResponse,
+    TransactionSummaryResponse,
     TransactionUpdateRequest,
 )
 from app.services.auth import get_current_user
-from app.services.transactions import list_transactions, update_transaction
+from app.services.transactions import (
+    list_transactions,
+    monthly_summary,
+    update_transaction,
+)
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -47,6 +52,18 @@ def get_transactions(
         page=page,
         page_size=page_size,
         totals=totals,
+    )
+
+
+@router.get("/summary", response_model=TransactionSummaryResponse)
+def get_transaction_summary(
+    from_date: datetime | None = Query(None),
+    to_date: datetime | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    return TransactionSummaryResponse(
+        series=monthly_summary(db, user, from_date, to_date)
     )
 
 

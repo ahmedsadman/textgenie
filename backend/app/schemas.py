@@ -203,6 +203,16 @@ class PaginatedTransactionsResponse(BaseModel):
     totals: TransactionTotals
 
 
+class MonthlySummaryBucket(BaseModel):
+    month_start: date
+    income: Decimal
+    expense: Decimal
+
+
+class TransactionSummaryResponse(BaseModel):
+    series: list[MonthlySummaryBucket]
+
+
 class BillResponse(BaseModel):
     id: int
     message_id: int

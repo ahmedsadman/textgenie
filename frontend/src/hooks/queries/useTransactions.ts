@@ -2,13 +2,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { transactionKeys } from "@/hooks/queries/keys";
-import { api, type TransactionsQuery } from "@/lib/api";
+import {
+  api,
+  type TransactionsQuery,
+  type TransactionSummaryQuery,
+} from "@/lib/api";
 import type { PaginatedTransactions, TransactionType } from "@/lib/types";
 
 export function useTransactions(params: TransactionsQuery) {
   return useQuery({
     queryKey: transactionKeys.list(params),
     queryFn: () => api.getTransactions(params),
+  });
+}
+
+export function useTransactionSummary(params: TransactionSummaryQuery) {
+  return useQuery({
+    queryKey: transactionKeys.summary(params),
+    queryFn: () => api.getTransactionSummary(params),
   });
 }
 

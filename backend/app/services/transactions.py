@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -10,6 +10,7 @@ from sqlalchemy.orm import aliased
 from app.constants import TransactionType
 from app.models import Bank, Message, Transaction, User
 from app.schemas import (
+    MonthlySummaryBucket,
     TransactionResponse,
     TransactionTotals,
 )
@@ -27,6 +28,82 @@ def _base_query(
     if to_date is not None:
         query = query.filter(Transaction.date <= to_date)
     return query
+
+
+def _next_month(d: date) -> date:
+    if d.month == 12:
+        return date(d.year + 1, 1, 1)
+    return date(d.year, d.month + 1, 1)
+
+
+def _month_range(start: date, end: date):
+    month = start
+    while month <= end:
+        yield month
+        month = _next_month(month)
+
+
+def _empty_bucket(month: date) -> MonthlySummaryBucket:
+    return MonthlySummaryBucket(
+        month_start=month, income=Decimal("0.00"), expense=Decimal("0.00")
+    )
+
+
+def monthly_summary(
+    db: DBSession,
+    user: User,
+    from_date: datetime | None,
+    to_date: datetime | None,
+) -> list[MonthlySummaryBucket]:
+    """Monthly-bucketed income/expense series with gap-filled months.
+
+    Transfers are excluded (consistent with the totals behavior). When there
+    is activity, every month between the lower and upper bound is emitted so
+    the line stays continuous; months with no activity get income=0, expense=0.
+    Returns an empty list when no income/expense transactions match — the
+    caller renders an empty state rather than a flat zero line.
+    """
+    base = _base_query(db, user, from_date, to_date).filter(
+        Transaction.type.in_(("income", "expense"))
+    )
+
+    rows = base.with_entities(
+        Transaction.date,
+        Transaction.type,
+        Transaction.normalized_amount,
+    ).all()
+
+    if not rows:
+        return []
+
+    buckets: dict[date, MonthlySummaryBucket] = {}
+    for tx_date, tx_type, amount in rows:
+        d = tx_date.date()
+        key = date(d.year, d.month, 1)
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = _empty_bucket(key)
+            buckets[key] = bucket
+        if tx_type == "income":
+            bucket.income += amount
+        else:
+            bucket.expense += amount
+
+    # Determine month bounds: honor the request window when given, otherwise
+    # derive from the earliest/latest income-or-expense transaction.
+    lower_month = (
+        date(from_date.year, from_date.month, 1)
+        if from_date is not None
+        else min(buckets)
+    )
+    upper_month = (
+        date(to_date.year, to_date.month, 1) if to_date is not None else max(buckets)
+    )
+
+    return [
+        buckets.get(month) or _empty_bucket(month)
+        for month in _month_range(lower_month, upper_month)
+    ]
 
 
 def list_transactions(

@@ -27,3 +27,17 @@ export function formatNumeric(
     maximumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0);
 }
+
+/**
+ * Format a number in compact notation (e.g. "1.2K", "3M") for space-constrained
+ * contexts such as chart axis ticks.
+ */
+export function formatCompact(
+  amount: string | number | null | undefined,
+): string {
+  const value = typeof amount === "string" ? Number(amount) : (amount ?? 0);
+  return new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Number.isFinite(value) ? value : 0);
+}

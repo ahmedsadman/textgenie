@@ -4,6 +4,7 @@ import type {
   BillsQuery,
   MessagesQuery,
   TransactionsQuery,
+  TransactionSummaryQuery,
 } from "@/lib/api";
 
 export const bankKeys = {
@@ -15,6 +16,8 @@ export const transactionKeys = {
   all: ["transactions"] as const,
   list: (params: TransactionsQuery) =>
     [...transactionKeys.all, "list", params] as const,
+  summary: (params: TransactionSummaryQuery) =>
+    [...transactionKeys.all, "summary", params] as const,
 };
 
 export const billKeys = {
