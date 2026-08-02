@@ -16,6 +16,7 @@ import type {
   PaginatedMessages,
   PaginatedTransactions,
   Transaction,
+  TransactionSummary,
   TransactionType,
   User,
   WebhookSettings,
@@ -76,6 +77,11 @@ export interface TransactionsQuery {
   types?: TransactionType[];
   sort_by?: "date" | "amount";
   sort_dir?: "asc" | "desc";
+}
+
+export interface TransactionSummaryQuery {
+  from_date?: string;
+  to_date?: string;
 }
 
 export interface BillsQuery {
@@ -185,6 +191,11 @@ export const api = {
   getTransactions: (params: TransactionsQuery) =>
     client
       .get<PaginatedTransactions>("/transactions", { params })
+      .then((r) => r.data),
+
+  getTransactionSummary: (params: TransactionSummaryQuery) =>
+    client
+      .get<TransactionSummary>("/transactions/summary", { params })
       .then((r) => r.data),
 
   updateTransaction: (id: number, type: TransactionType) =>

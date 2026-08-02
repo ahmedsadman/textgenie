@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import BankFormDialog from "@/components/BankFormDialog";
 import BillsSection from "@/components/BillsSection";
+import SummaryGraphSection from "@/components/SummaryGraphSection";
 import TransactionsSection from "@/components/TransactionsSection";
 import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
 import { useCurrency } from "@/hooks/queries/useCurrency";
@@ -239,6 +240,8 @@ export default function FinancePage() {
       )}
 
       <BillsSection banks={banks} />
+
+      <SummaryGraphSection />
 
       <TransactionsSection />
     </div>

@@ -10,4 +10,7 @@ export const handlers: RequestHandler[] = [
   http.get("/api/bills", () =>
     HttpResponse.json({ bills: [], total: 0, page: 1, page_size: 20 }),
   ),
+  http.get("/api/transactions/summary", () =>
+    HttpResponse.json({ series: [] }),
+  ),
 ];
