@@ -48,6 +48,11 @@ void main() {
     expect(repo.webhookUrl, 'https://example.com/webhook/abc');
   });
 
+  testWidgets('shows a Scan QR button in the webhook section', (tester) async {
+    await _pumpSettings(tester, repo);
+    expect(find.widgetWithText(OutlinedButton, 'Scan QR'), findsOneWidget);
+  });
+
   testWidgets('toggles contact resolution', (tester) async {
     await _pumpSettings(tester, repo);
     expect(repo.resolveContacts, isTrue); // default on

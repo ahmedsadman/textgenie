@@ -62,6 +62,18 @@ describe("SettingsPage", () => {
     expect(writeText).toHaveBeenCalledWith(mockWebhook.webhook_url);
   });
 
+  it("opens the QR modal when the Show QR button is clicked", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<SettingsPage />);
+    await screen.findByDisplayValue(mockWebhook.webhook_url);
+
+    await user.click(screen.getByLabelText("Show webhook URL as QR code"));
+
+    const qr = await screen.findByTestId("webhook-qr");
+    expect(qr.getAttribute("data-payload")).toContain(mockWebhook.webhook_url);
+    expect(screen.getByText("Webhook QR code")).toBeInTheDocument();
+  });
+
   it("regenerates the webhook token and shows the new URL", async () => {
     const newWebhook = {
       webhook_url: "http://localhost:8001/api/webhook/new-token-456",

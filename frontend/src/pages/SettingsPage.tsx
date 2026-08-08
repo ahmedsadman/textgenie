@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { Check, Copy, Loader2, RefreshCw } from "lucide-react";
+import { Check, Copy, Loader2, QrCode, RefreshCw } from "lucide-react";
 
 import CategoriesSection from "@/components/CategoriesSection";
+import WebhookQrDialog from "@/components/WebhookQrDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,7 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const [blacklist, setBlacklist] = useState<string[]>([]);
   const [initialBlacklist, setInitialBlacklist] = useState<string[]>([]);
@@ -242,8 +244,28 @@ export default function SettingsPage() {
               </AlertDialogContent>
             </AlertDialog>
           </div>
+          <div className="mt-1 flex flex-col items-start gap-1">
+            <Button
+              onClick={() => setQrOpen(true)}
+              disabled={!webhook?.webhook_url}
+              aria-label="Show webhook URL as QR code"
+            >
+              <QrCode className="h-4 w-4" />
+              Show QR code
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Scan from the TextGenie mobile app to configure the webhook
+              instantly.
+            </p>
+          </div>
         </CardContent>
       </Card>
+
+      <WebhookQrDialog
+        url={webhook?.webhook_url ?? ""}
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+      />
 
       <CategoriesSection />
 
