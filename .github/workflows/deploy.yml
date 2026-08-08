@@ -150,17 +150,19 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          BACKEND_TAG: ${{ needs.backend-build.result == 'success' && github.sha || 'latest' }}
+          FRONTEND_TAG: ${{ needs.frontend-build.result == 'success' && github.sha || 'latest' }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG
+          envs: BACKEND_TAG,FRONTEND_TAG
           script: |
             set -e
             cd ~/textgenie
             git pull origin main
-            export IMAGE_TAG=${IMAGE_TAG}
+            export BACKEND_TAG=${BACKEND_TAG}
+            export FRONTEND_TAG=${FRONTEND_TAG}
 
             SERVICES=""
             if [ "${{ needs.backend-build.result }}" = "success" ]; then
