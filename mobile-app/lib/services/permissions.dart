@@ -18,4 +18,9 @@ class AppPermissions {
     final status = await Permission.ignoreBatteryOptimizations.request();
     return status.isGranted;
   }
+
+  static Future<bool> ensureCamera() async {
+    final status = await Permission.camera.request();
+    return status.isGranted;
+  }
 }

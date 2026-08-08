@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/permissions.dart';
 import '../state/providers.dart';
+import '../utils/webhook_qr.dart';
+import 'qr_scan_page.dart';
 
 /// Settings tab: webhook URL, contact-name toggle, battery-optimization prompt.
 class SettingsPage extends ConsumerStatefulWidget {
@@ -30,19 +32,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.dispose();
   }
 
-  static String? _validateUrl(String? value) {
-    final text = value?.trim() ?? '';
-    if (text.isEmpty) return 'Webhook URL is required';
-    final uri = Uri.tryParse(text);
-    if (uri == null || !uri.isAbsolute || !uri.hasScheme || uri.host.isEmpty) {
-      return 'Enter a valid URL (including https://)';
-    }
-    if (uri.scheme != 'http' && uri.scheme != 'https') {
-      return 'URL must start with http:// or https://';
-    }
-    return null;
-  }
-
   Future<void> _saveUrl() async {
     if (!_formKey.currentState!.validate()) return;
     await ref
@@ -53,6 +42,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Webhook URL saved')));
+  }
+
+  Future<void> _scanQr() async {
+    final granted = await AppPermissions.ensureCamera();
+    if (!mounted) return;
+    if (!granted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Camera permission denied')));
+      return;
+    }
+    final scanned = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const QrScanPage()));
+    if (!mounted || scanned == null) return;
+    _urlController.text = scanned;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Webhook URL updated from QR')),
+    );
   }
 
   Future<void> _requestBattery() async {
@@ -91,17 +99,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 labelText: 'Webhook URL',
                 hintText: 'https://example.com/webhook/...',
               ),
-              validator: _validateUrl,
+              validator: validateWebhookUrl,
             ),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: _saveUrl,
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _scanQr,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan QR'),
+              ),
+              FilledButton.icon(
+                onPressed: _saveUrl,
+                icon: const Icon(Icons.save),
+                label: const Text('Save'),
+              ),
+            ],
           ),
           const Divider(height: 32),
           SwitchListTile(
