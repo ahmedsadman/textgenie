@@ -5,58 +5,41 @@ on:
     paths:
       - "mobile-app/**"
       - ".github/workflows/mobile-pr.yml"
-
-defaults:
-  run:
-    working-directory: mobile-app
+      - ".github/workflows/mobile-checks.yml"
 
 jobs:
-  lint:
-    name: lint
+  changes:
+    name: detect-changes
     runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - name: Filter Android-affecting paths
+        uses: dorny/paths-filter@v3
+        id: filter
         with:
-          flutter-version: "3.44.8"
-          channel: stable
-          cache: true
+          filters: |
+            android:
+              - "mobile-app/android/**"
+              - "mobile-app/pubspec.yaml"
+              - "mobile-app/pubspec.lock"
+              - ".github/workflows/mobile-pr.yml"
+              - ".github/workflows/mobile-checks.yml"
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed .
-
-      - name: Analyze
-        run: flutter analyze
-
-  test:
-    name: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.44.8"
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Test
-        run: flutter test
+  checks:
+    uses: ./.github/workflows/mobile-checks.yml
 
   build:
     name: build-debug
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-app
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

@@ -8,6 +8,7 @@ on:
     paths:
       - "mobile-app/**"
       - ".github/workflows/mobile-release.yml"
+      - ".github/workflows/mobile-checks.yml"
 
 defaults:
   run:
@@ -17,8 +18,12 @@ permissions:
   contents: write
 
 jobs:
+  checks:
+    uses: ./.github/workflows/mobile-checks.yml
+
   build-release:
     name: build-release
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -65,19 +70,25 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "tag=v${BASE}+${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build release APK
+      - name: Build release APKs
         run: |
-          flutter build apk --release \
+          flutter build apk --release --split-per-abi \
             --build-name=${{ steps.version.outputs.base }} \
             --build-number=${{ github.run_number }}
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/TextGenie.apk
+          cd build/app/outputs/flutter-apk
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "app-${abi}-release.apk" "TextGenie-${abi}.apk"
+          done
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
-          files: mobile-app/build/app/outputs/flutter-apk/TextGenie.apk
+          files: |
+            mobile-app/build/app/outputs/flutter-apk/TextGenie-arm64-v8a.apk
+            mobile-app/build/app/outputs/flutter-apk/TextGenie-armeabi-v7a.apk
+            mobile-app/build/app/outputs/flutter-apk/TextGenie-x86_64.apk
 
       - name: Prune old releases (keep newest 5)
         env:
