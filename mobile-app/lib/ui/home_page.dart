@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/sms_repository.dart';
 import '../models/sms_record.dart';
 import '../state/providers.dart';
 import 'widgets/section_header.dart';
@@ -51,6 +52,7 @@ class HomePage extends ConsumerWidget {
               async: history,
               emptyMessage: 'No messages sent yet.',
               showCount: false,
+              footer: 'Showing last $kHistoryLimit records',
             ),
           ],
         ),
@@ -65,16 +67,19 @@ class _Section extends StatelessWidget {
     required this.async,
     required this.emptyMessage,
     required this.showCount,
+    this.footer,
   });
 
   final String title;
   final AsyncValue<List<SmsRecord>> async;
   final String emptyMessage;
   final bool showCount;
+  final String? footer;
 
   @override
   Widget build(BuildContext context) {
     final records = async.value ?? const [];
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -86,8 +91,20 @@ class _Section extends StatelessWidget {
           )
         else if (records.isEmpty)
           EmptyHint(emptyMessage)
-        else
+        else ...[
           ...records.map((r) => SmsTile(r)),
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                footer!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }

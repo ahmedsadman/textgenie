@@ -3,6 +3,9 @@ import 'package:sqflite/sqflite.dart';
 import '../models/sms_record.dart';
 import 'database.dart';
 
+/// Default cap for [SmsRepository.history]. Exposed so the UI can display it.
+const int kHistoryLimit = 10;
+
 /// CRUD + queue/history queries for captured SMS.
 class SmsRepository {
   SmsRepository(this._db);
@@ -31,7 +34,7 @@ class SmsRepository {
   );
 
   /// Last [limit] finished records, most recently updated first.
-  Future<List<SmsRecord>> history({int limit = 10}) => _query(
+  Future<List<SmsRecord>> history({int limit = kHistoryLimit}) => _query(
     where: 'status IN (?, ?)',
     whereArgs: [SmsStatus.success.name, SmsStatus.failure.name],
     orderBy: 'updated_at DESC',
