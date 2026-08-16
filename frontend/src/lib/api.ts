@@ -127,6 +127,9 @@ export const api = {
 
   logout: () => client.post<void>("/auth/logout", {}).then((r) => r.data),
 
+  extend: () =>
+    client.post<{ message: string }>("/auth/extend", {}).then((r) => r.data),
+
   getCategories: () =>
     client.get<Category[]>("/categories").then((r) => r.data),
 
