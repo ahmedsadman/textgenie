@@ -13,4 +13,7 @@ export const handlers: RequestHandler[] = [
   http.get("/api/transactions/summary", () =>
     HttpResponse.json({ series: [] }),
   ),
+  http.post("/api/auth/extend", () =>
+    HttpResponse.json({ message: "Session extended" }),
+  ),
 ];

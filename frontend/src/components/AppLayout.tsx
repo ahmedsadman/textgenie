@@ -14,6 +14,7 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useLogout, useMe } from "@/hooks/queries/useAuth";
+import { useSessionKeepalive } from "@/hooks/queries/useSessionKeepalive";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -30,6 +31,8 @@ export default function AppLayout() {
   const { data: user, isPending, isError } = useMe();
   const logout = useLogout();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useSessionKeepalive();
 
   useEffect(() => {
     if (isError) navigate("/login", { replace: true });
