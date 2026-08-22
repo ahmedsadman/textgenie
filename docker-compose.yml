@@ -1,6 +1,7 @@
 services:
   db:
     image: mysql:8.4.5
+    restart: unless-stopped
     command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
@@ -19,6 +20,7 @@ services:
 
   backend:
     image: ghcr.io/ahmedsadman/textgenie-backend:${BACKEND_TAG:-latest}
+    restart: unless-stopped
     expose:
       - "8000"
     depends_on:
@@ -33,6 +35,7 @@ services:
 
   frontend:
     image: ghcr.io/ahmedsadman/textgenie-frontend:${FRONTEND_TAG:-latest}
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
