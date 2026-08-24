@@ -32,6 +32,7 @@ class SmsRecord {
     this.attempts = 0,
     this.lastError,
     this.updatedAt = 0,
+    this.nextAttemptAt,
   });
 
   /// Local DB primary key (null before insert).
@@ -55,6 +56,10 @@ class SmsRecord {
   /// Epoch milliseconds of the last status change (drives History ordering).
   final int updatedAt;
 
+  /// Epoch milliseconds before which a queued row must not be retried.
+  /// Null means due immediately.
+  final int? nextAttemptAt;
+
   bool get isQueued =>
       status == SmsStatus.queued || status == SmsStatus.sending;
 
@@ -64,6 +69,7 @@ class SmsRecord {
     int? attempts,
     String? lastError,
     int? updatedAt,
+    int? nextAttemptAt,
   }) {
     return SmsRecord(
       id: id ?? this.id,
@@ -75,6 +81,7 @@ class SmsRecord {
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
       updatedAt: updatedAt ?? this.updatedAt,
+      nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
     );
   }
 
@@ -88,6 +95,7 @@ class SmsRecord {
     'attempts': attempts,
     'last_error': lastError,
     'updated_at': updatedAt,
+    'next_attempt_at': nextAttemptAt,
   };
 
   factory SmsRecord.fromDbMap(Map<String, Object?> map) => SmsRecord(
@@ -100,6 +108,7 @@ class SmsRecord {
     attempts: map['attempts'] as int? ?? 0,
     lastError: map['last_error'] as String?,
     updatedAt: map['updated_at'] as int? ?? 0,
+    nextAttemptAt: map['next_attempt_at'] as int?,
   );
 
   /// The exact JSON body sent to the webhook.

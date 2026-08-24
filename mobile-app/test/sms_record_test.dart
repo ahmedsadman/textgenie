@@ -50,6 +50,7 @@ void main() {
         attempts: 3,
         lastError: 'HTTP 500',
         updatedAt: 99,
+        nextAttemptAt: 4242,
       );
       final restored = SmsRecord.fromDbMap(record.toDbMap());
       expect(restored.id, 5);
@@ -57,6 +58,7 @@ void main() {
       expect(restored.attempts, 3);
       expect(restored.contactName, 'Alice');
       expect(restored.lastError, 'HTTP 500');
+      expect(restored.nextAttemptAt, 4242);
     });
   });
 }

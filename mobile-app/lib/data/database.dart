@@ -10,11 +10,16 @@ class AppDatabase {
 
   static const String fileName = 'textgenie.db';
   static const String table = 'sms_records';
-  static const int _version = 1;
+  static const int _version = 2;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), fileName);
-    return openDatabase(path, version: _version, onCreate: createSchema);
+    return openDatabase(
+      path,
+      version: _version,
+      onCreate: createSchema,
+      onUpgrade: onUpgrade,
+    );
   }
 
   /// Creates the schema. Public so tests can build an in-memory database.
@@ -29,7 +34,8 @@ class AppDatabase {
         status TEXT NOT NULL,
         attempts INTEGER NOT NULL DEFAULT 0,
         last_error TEXT,
-        updated_at INTEGER NOT NULL DEFAULT 0
+        updated_at INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER
       )
     ''');
     // Dedupe overlapping foreground / background / cold-start reads of one SMS.
@@ -37,5 +43,17 @@ class AppDatabase {
       CREATE UNIQUE INDEX idx_sms_unique
       ON $table (sender, timestamp, content)
     ''');
+  }
+
+  /// Applies incremental migrations. Each version's delta is additive so
+  /// future upgrades can be appended below.
+  static Future<void> onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE $table ADD COLUMN next_attempt_at INTEGER');
+    }
   }
 }
