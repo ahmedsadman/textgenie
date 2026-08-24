@@ -32,4 +32,18 @@ void main() {
     verify(() => plugin.cancel(1)).called(1);
     verifyNever(() => plugin.show(any(), any(), any(), any()));
   });
+
+  test('reconcileRetrying posts under its own id when retries exist', () async {
+    await service.reconcileRetrying(2);
+
+    verify(() => plugin.show(2, any(), any(), any())).called(1);
+    verifyNever(() => plugin.cancel(any()));
+  });
+
+  test('reconcileRetrying cancels its own id at zero', () async {
+    await service.reconcileRetrying(0);
+
+    verify(() => plugin.cancel(2)).called(1);
+    verifyNever(() => plugin.show(any(), any(), any(), any()));
+  });
 }

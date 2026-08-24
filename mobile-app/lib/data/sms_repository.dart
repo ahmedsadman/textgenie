@@ -3,8 +3,11 @@ import 'package:sqflite/sqflite.dart';
 import '../models/sms_record.dart';
 import 'database.dart';
 
-/// Default cap for [SmsRepository.history]. Exposed so the UI can display it.
-const int kHistoryLimit = 10;
+/// Default cap for successful records kept/displayed by [SmsRepository].
+const int kHistoryLimit = 20;
+
+/// How long failed records are retained before [SmsRepository.prune] deletes them.
+const Duration kFailureRetention = Duration(days: 30);
 
 /// CRUD + queue/history queries for captured SMS.
 class SmsRepository {
@@ -52,6 +55,19 @@ class SmsRepository {
     return Sqflite.firstIntValue(rows) ?? 0;
   }
 
+  /// Number of records that have hit at least one real request failure and are
+  /// still being retried (not yet delivered or exhausted). `attempts` only
+  /// increments on genuine online failures, so pure-offline rows (attempts == 0)
+  /// are excluded.
+  Future<int> countRetrying() async {
+    final rows = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM $_table '
+      'WHERE status IN (?, ?) AND attempts >= 1',
+      [SmsStatus.queued.name, SmsStatus.sending.name],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
   /// Manual retry: returns all failed rows to `queued` for one more attempt.
   ///
   /// [attempts] is pre-set to `maxAttempts - 1` so the single-send flush tries
@@ -70,13 +86,39 @@ class SmsRepository {
     );
   }
 
-  /// Last [limit] finished records, most recently updated first.
-  Future<List<SmsRecord>> history({int limit = kHistoryLimit}) => _query(
-    where: 'status IN (?, ?)',
-    whereArgs: [SmsStatus.success.name, SmsStatus.failure.name],
-    orderBy: 'updated_at DESC',
-    limit: limit,
-  );
+  /// Finished records, most recently updated first: all failures plus the newest
+  /// [limit] successes. Failures never count against the success limit so they
+  /// always remain visible.
+  Future<List<SmsRecord>> history({int limit = kHistoryLimit}) async {
+    final rows = await _db.rawQuery(
+      'SELECT * FROM $_table '
+      'WHERE status = ? '
+      '   OR id IN (SELECT id FROM $_table WHERE status = ? '
+      '             ORDER BY updated_at DESC LIMIT ?) '
+      'ORDER BY updated_at DESC',
+      [SmsStatus.failure.name, SmsStatus.success.name, limit],
+    );
+    return rows.map(SmsRecord.fromDbMap).toList();
+  }
+
+  /// Bounds local storage: keeps only the newest [keepSuccess] successful rows
+  /// and deletes failures older than [failureCutoff] (epoch ms). Never touches
+  /// in-flight rows (`queued`/`sending`).
+  Future<void> prune({
+    int keepSuccess = kHistoryLimit,
+    required int failureCutoff,
+  }) async {
+    await _db.rawDelete(
+      'DELETE FROM $_table WHERE status = ? AND id NOT IN '
+      '(SELECT id FROM $_table WHERE status = ? '
+      ' ORDER BY updated_at DESC LIMIT ?)',
+      [SmsStatus.success.name, SmsStatus.success.name, keepSuccess],
+    );
+    await _db.rawDelete(
+      'DELETE FROM $_table WHERE status = ? AND updated_at < ?',
+      [SmsStatus.failure.name, failureCutoff],
+    );
+  }
 
   Future<void> updateStatus(
     int id,
