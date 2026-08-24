@@ -65,6 +65,7 @@ class FlushService {
       }
 
       await notifications.reconcileFailures(await repository.countFailed());
+      await notifications.reconcileRetrying(await repository.countRetrying());
     } finally {
       _running = false;
     }

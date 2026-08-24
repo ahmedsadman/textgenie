@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/sms_repository.dart';
 import '../models/sms_record.dart';
 import '../state/providers.dart';
 import 'widgets/section_header.dart';
@@ -21,6 +20,13 @@ class HomePage extends ConsumerWidget {
     final canRetryFailed = failedCount > 0 && settings.hasWebhookUrl;
     final hasQueued = queued.value?.isNotEmpty ?? false;
     final canSendQueued = hasQueued && settings.hasWebhookUrl;
+    final historyRecords = history.value ?? const <SmsRecord>[];
+    final historyHasFailure = historyRecords.any(
+      (r) => r.status == SmsStatus.failure,
+    );
+    final historyFooter = historyHasFailure
+        ? 'Showing recent history only, including failures'
+        : 'Showing recent history only';
 
     return Scaffold(
       appBar: AppBar(title: const Text('TextGenie')),
@@ -52,7 +58,7 @@ class HomePage extends ConsumerWidget {
               async: history,
               emptyMessage: 'No messages sent yet.',
               showCount: false,
-              footer: 'Showing last $kHistoryLimit records',
+              footer: historyFooter,
               action: canRetryFailed
                   ? IconButton(
                       tooltip: 'Retry failed',

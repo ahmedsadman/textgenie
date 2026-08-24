@@ -71,8 +71,8 @@ void main() {
     expect(queued.map((r) => r.content), ['old', 'new']);
   });
 
-  test('history returns finished records, newest first, limited', () async {
-    for (var i = 0; i < 12; i++) {
+  test('history caps successes to the limit, newest first', () async {
+    for (var i = 0; i < 25; i++) {
       await repo.insertIfNew(
         rec(
           content: 'm$i',
@@ -83,8 +83,39 @@ void main() {
       );
     }
     final history = await repo.history();
-    expect(history.length, 10);
-    expect(history.first.content, 'm11');
+    expect(history.length, kHistoryLimit);
+    expect(history.first.content, 'm24');
+  });
+
+  test('history keeps all failures plus newest limit successes', () async {
+    for (var i = 0; i < 25; i++) {
+      await repo.insertIfNew(
+        rec(
+          content: 's$i',
+          timestamp: i,
+          status: SmsStatus.success,
+          updatedAt: i,
+        ),
+      );
+    }
+    for (var i = 0; i < 5; i++) {
+      await repo.insertIfNew(
+        rec(
+          content: 'f$i',
+          timestamp: 1000 + i,
+          status: SmsStatus.failure,
+          updatedAt: 1000 + i,
+        ),
+      );
+    }
+
+    final history = await repo.history();
+    final failures = history.where((r) => r.status == SmsStatus.failure);
+    final successes = history.where((r) => r.status == SmsStatus.success);
+    expect(failures.length, 5); // all failures survive the success cap
+    expect(successes.length, kHistoryLimit);
+    // Newest-updated first: failures (updatedAt 1000+) precede successes.
+    expect(history.first.content, 'f4');
   });
 
   test('claim succeeds once, second claim on same row fails', () async {
@@ -185,5 +216,73 @@ void main() {
     // The successful row is untouched.
     expect(await repo.countFailed(), 0);
     expect((await repo.history()).single.content, 'ok');
+  });
+
+  test('countRetrying counts queued/sending with attempts >= 1', () async {
+    await repo.insertIfNew(
+      rec(content: 'retry-q', status: SmsStatus.queued, attempts: 2),
+    );
+    await repo.insertIfNew(
+      rec(content: 'retry-s', status: SmsStatus.sending, attempts: 1),
+    );
+    // Offline-only / brand new: still in flight but no real attempt yet.
+    await repo.insertIfNew(
+      rec(content: 'offline', status: SmsStatus.queued, attempts: 0),
+    );
+    // Terminal rows never count regardless of attempts.
+    await repo.insertIfNew(
+      rec(content: 'failed', status: SmsStatus.failure, attempts: 10),
+    );
+
+    expect(await repo.countRetrying(), 2);
+  });
+
+  test('prune caps successes and keeps in-flight rows', () async {
+    for (var i = 0; i < 25; i++) {
+      await repo.insertIfNew(
+        rec(
+          content: 's$i',
+          timestamp: i,
+          status: SmsStatus.success,
+          updatedAt: i,
+        ),
+      );
+    }
+    await repo.insertIfNew(
+      rec(content: 'q', timestamp: 100, status: SmsStatus.queued, attempts: 1),
+    );
+    await repo.insertIfNew(
+      rec(content: 'sn', timestamp: 101, status: SmsStatus.sending),
+    );
+
+    await repo.prune(failureCutoff: 0);
+
+    final successes = (await repo.history()).where(
+      (r) => r.status == SmsStatus.success,
+    );
+    expect(successes.length, kHistoryLimit); // capped to newest 20
+    expect(successes.map((r) => r.content), contains('s24'));
+    expect(successes.map((r) => r.content), isNot(contains('s0')));
+    // In-flight rows survive.
+    expect(
+      (await repo.queued()).map((r) => r.content),
+      containsAll(['q', 'sn']),
+    );
+  });
+
+  test('prune deletes failures older than the cutoff, keeps recent', () async {
+    await repo.insertIfNew(
+      rec(content: 'old', status: SmsStatus.failure, updatedAt: 100),
+    );
+    await repo.insertIfNew(
+      rec(content: 'recent', status: SmsStatus.failure, updatedAt: 900),
+    );
+
+    await repo.prune(failureCutoff: 500);
+
+    final failures = (await repo.history()).where(
+      (r) => r.status == SmsStatus.failure,
+    );
+    expect(failures.map((r) => r.content), ['recent']);
   });
 }

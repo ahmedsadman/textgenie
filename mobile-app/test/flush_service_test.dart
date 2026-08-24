@@ -61,8 +61,10 @@ void main() {
     when(() => repo.reclaimStale(any())).thenAnswer((_) async {});
     when(() => repo.claim(any(), any())).thenAnswer((_) async => true);
     when(() => repo.countFailed()).thenAnswer((_) async => 0);
+    when(() => repo.countRetrying()).thenAnswer((_) async => 0);
     when(() => repo.dueForDelivery(any())).thenAnswer((_) async => []);
     when(() => notifications.reconcileFailures(any())).thenAnswer((_) async {});
+    when(() => notifications.reconcileRetrying(any())).thenAnswer((_) async {});
     when(
       () => repo.updateStatus(
         any(),
@@ -180,6 +182,7 @@ void main() {
       when(() => repo.reclaimStale(any())).thenAnswer((_) async {});
       when(() => repo.claim(any(), any())).thenAnswer((_) async => true);
       when(() => repo.countFailed()).thenAnswer((_) async => 0);
+      when(() => repo.countRetrying()).thenAnswer((_) async => 0);
       when(
         () => repo.updateStatus(
           any(),
@@ -214,6 +217,40 @@ void main() {
     when(() => repo.countFailed()).thenAnswer((_) async => 3);
     await build().flush();
     verify(() => notifications.reconcileFailures(3)).called(1);
+  });
+
+  test('reconciles the retrying notification each flush', () async {
+    // A first real request failure leaves the row queued with attempts >= 1,
+    // so countRetrying reports it and the early alert fires.
+    when(() => repo.countRetrying()).thenAnswer((_) async => 1);
+    await build().flush();
+    verify(() => notifications.reconcileRetrying(1)).called(1);
+  });
+
+  test('offline mid-send does not increment attempts', () async {
+    var online = true;
+    when(() => connectivity.isOnline()).thenAnswer((_) async => online);
+    when(
+      () => repo.dueForDelivery(any()),
+    ).thenAnswer((_) async => [_record(attempts: 3, nextAttemptAt: 99)]);
+    when(() => client.send(any(), any())).thenAnswer((_) async {
+      online = false;
+      return const WebhookResult.failure('HTTP 500');
+    });
+
+    await build().flush();
+
+    final captured = verify(
+      () => repo.updateStatus(
+        any(),
+        any(),
+        attempts: captureAny(named: 'attempts'),
+        lastError: any(named: 'lastError'),
+        updatedAt: any(named: 'updatedAt'),
+        nextAttemptAt: any(named: 'nextAttemptAt'),
+      ),
+    ).captured;
+    expect(captured.single, 3); // unchanged: transport drop, not a real attempt
   });
 
   test('releases the row unchanged when it goes offline mid-send', () async {

@@ -16,8 +16,9 @@ class NotificationService {
   static const String _channelDescription =
       'Alerts when messages cannot be delivered to your webhook';
 
-  /// Fixed id so repeated reconciles update (not stack) one notification.
+  /// Fixed ids so repeated reconciles update (not stack) one notification each.
   static const int _failureNotificationId = 1;
+  static const int _retryingNotificationId = 2;
 
   Future<void> init() async {
     const settings = InitializationSettings(
@@ -39,19 +40,42 @@ class NotificationService {
         );
   }
 
-  /// Shows one notification when [count] > 0, cancels it when 0. Called at the
-  /// end of every flush so the notification auto-clears once failures succeed
-  /// or are retried away.
-  Future<void> reconcileFailures(int count) async {
+  /// Shows the terminal-failure notification when [count] > 0, cancels it at 0.
+  /// Called at the end of every flush so it auto-clears once failures succeed or
+  /// are retried away.
+  Future<void> reconcileFailures(int count) => _reconcile(
+    id: _failureNotificationId,
+    title: 'Delivery failed',
+    count: count,
+    body: (noun) => "$count $noun couldn't be delivered to your webhook",
+  );
+
+  /// Shows an early alert when [count] > 0 messages have first failed a real
+  /// request and are being retried, cancels it at 0. Distinct id/title from
+  /// [reconcileFailures] so the two coexist.
+  Future<void> reconcileRetrying(int count) => _reconcile(
+    id: _retryingNotificationId,
+    title: 'Delivery failing',
+    count: count,
+    body: (noun) =>
+        "$count $noun couldn't be delivered yet and are being retried",
+  );
+
+  Future<void> _reconcile({
+    required int id,
+    required String title,
+    required int count,
+    required String Function(String noun) body,
+  }) async {
     if (count <= 0) {
-      await _plugin.cancel(_failureNotificationId);
+      await _plugin.cancel(id);
       return;
     }
     final noun = count == 1 ? 'message' : 'messages';
     await _plugin.show(
-      _failureNotificationId,
-      'Delivery failed',
-      "$count $noun couldn't be delivered to your webhook",
+      id,
+      title,
+      body(noun),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,

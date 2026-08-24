@@ -82,7 +82,7 @@ void main() {
     expect(find.text('Queued'), findsWidgets); // section header + badge
   });
 
-  testWidgets('renders history with success/failure badges and last-N footer', (
+  testWidgets('history footer notes failures when a failure is present', (
     tester,
   ) async {
     await _pumpHome(
@@ -99,7 +99,28 @@ void main() {
     expect(find.text('Success'), findsOneWidget);
     expect(find.text('Failure'), findsOneWidget);
     expect(find.text('No messages sent yet.'), findsNothing);
-    expect(find.text('Showing last 10 records'), findsOneWidget);
+    expect(
+      find.text('Showing recent history only, including failures'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('history footer omits failures note with only successes', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(
+        webhookUrl: 'https://x.dev',
+        resolveContacts: true,
+      ),
+      history: [_rec(status: SmsStatus.success)],
+    );
+    expect(find.text('Showing recent history only'), findsOneWidget);
+    expect(
+      find.text('Showing recent history only, including failures'),
+      findsNothing,
+    );
   });
 
   testWidgets('hides history footer when history is empty', (tester) async {
@@ -111,7 +132,7 @@ void main() {
       ),
     );
     expect(find.text('No messages sent yet.'), findsOneWidget);
-    expect(find.text('Showing last 10 records'), findsNothing);
+    expect(find.textContaining('Showing recent history only'), findsNothing);
   });
 
   testWidgets('shows retry icon when failures exist and webhook set', (

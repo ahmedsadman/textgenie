@@ -106,5 +106,10 @@ class AppServices {
     );
 
     await flushService.flush();
+
+    // Cleanup runs last so it never delays capture/delivery of the SMS.
+    await smsRepository.prune(
+      failureCutoff: now - kFailureRetention.inMilliseconds,
+    );
   }
 }
