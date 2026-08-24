@@ -52,6 +52,13 @@ final historyProvider = StreamProvider.autoDispose<List<SmsRecord>>((ref) {
   return _poll(() => repo.history());
 });
 
+/// Number of failed records, polled so the History retry affordance appears and
+/// clears in step with background delivery.
+final failedCountProvider = StreamProvider.autoDispose<int>((ref) {
+  final repo = ref.watch(smsRepositoryProvider);
+  return _poll(() => repo.countFailed());
+});
+
 Stream<T> _poll<T>(Future<T> Function() read) async* {
   yield await read();
   yield* Stream.periodic(const Duration(seconds: 2)).asyncMap((_) => read());

@@ -17,20 +17,13 @@ class HomePage extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final queued = ref.watch(queuedProvider);
     final history = ref.watch(historyProvider);
+    final failedCount = ref.watch(failedCountProvider).value ?? 0;
+    final canRetryFailed = failedCount > 0 && settings.hasWebhookUrl;
+    final hasQueued = queued.value?.isNotEmpty ?? false;
+    final canSendQueued = hasQueued && settings.hasWebhookUrl;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('TextGenie'),
-        actions: [
-          IconButton(
-            tooltip: 'Send queued now',
-            icon: const Icon(Icons.sync),
-            onPressed: settings.hasWebhookUrl
-                ? () => ref.read(flushServiceProvider).flush()
-                : null,
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('TextGenie')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(queuedProvider);
@@ -46,6 +39,13 @@ class HomePage extends ConsumerWidget {
               async: queued,
               emptyMessage: 'Nothing queued.',
               showCount: true,
+              action: canSendQueued
+                  ? IconButton(
+                      tooltip: 'Send queued now',
+                      icon: const Icon(Icons.sync),
+                      onPressed: () => ref.read(flushServiceProvider).flush(),
+                    )
+                  : null,
             ),
             _Section(
               title: 'History',
@@ -53,6 +53,22 @@ class HomePage extends ConsumerWidget {
               emptyMessage: 'No messages sent yet.',
               showCount: false,
               footer: 'Showing last $kHistoryLimit records',
+              action: canRetryFailed
+                  ? IconButton(
+                      tooltip: 'Retry failed',
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () async {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Retrying failed messages'),
+                          ),
+                        );
+                        await ref.read(appServicesProvider).requeueFailed();
+                        ref.invalidate(historyProvider);
+                        ref.invalidate(failedCountProvider);
+                      },
+                    )
+                  : null,
             ),
           ],
         ),
@@ -68,6 +84,7 @@ class _Section extends StatelessWidget {
     required this.emptyMessage,
     required this.showCount,
     this.footer,
+    this.action,
   });
 
   final String title;
@@ -75,6 +92,7 @@ class _Section extends StatelessWidget {
   final String emptyMessage;
   final bool showCount;
   final String? footer;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +101,11 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(title, count: showCount ? records.length : null),
+        SectionHeader(
+          title,
+          count: showCount ? records.length : null,
+          action: action,
+        ),
         if (async.isLoading && async.value == null)
           const Padding(
             padding: EdgeInsets.all(16),

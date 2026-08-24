@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// A section title with an optional trailing count chip.
+/// A section title with an optional trailing count chip and trailing action.
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.title, {this.count, super.key});
+  const SectionHeader(this.title, {this.count, this.action, super.key});
 
   final String title;
   final int? count;
+
+  /// Optional widget pinned to the right of the header (e.g. a retry button).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,7 @@ class SectionHeader extends StatelessWidget {
               child: Text('$count', style: theme.textTheme.bodySmall),
             ),
           ],
+          if (action != null) ...[const Spacer(), action!],
         ],
       ),
     );
