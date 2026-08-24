@@ -4,10 +4,15 @@ import 'package:permission_handler/permission_handler.dart';
 class AppPermissions {
   const AppPermissions._();
 
-  /// Requests SMS + contacts up front. Contacts is optional — denial only
-  /// disables contact-name resolution, it does not block SMS capture.
+  /// Requests SMS + contacts + notifications up front. Contacts and
+  /// notifications are optional — denial only disables their respective
+  /// feature, it does not block SMS capture.
   static Future<void> requestAll() async {
-    await [Permission.sms, Permission.contacts].request();
+    await [
+      Permission.sms,
+      Permission.contacts,
+      Permission.notification,
+    ].request();
   }
 
   static Future<bool> hasSms() => Permission.sms.isGranted;
