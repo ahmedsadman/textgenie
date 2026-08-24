@@ -31,13 +31,17 @@ void main() {
     String content = 'hi',
     int timestamp = 1000,
     SmsStatus status = SmsStatus.queued,
+    int attempts = 0,
     int updatedAt = 0,
+    int? nextAttemptAt,
   }) => SmsRecord(
     sender: sender,
     content: content,
     timestamp: timestamp,
     status: status,
+    attempts: attempts,
     updatedAt: updatedAt,
+    nextAttemptAt: nextAttemptAt,
   );
 
   test('insertIfNew returns id, then null for a duplicate', () async {
@@ -116,5 +120,70 @@ void main() {
     expect(failed.status, SmsStatus.failure);
     expect(failed.attempts, 5);
     expect(failed.lastError, 'HTTP 500');
+  });
+
+  test('updateStatus sets then clears next_attempt_at', () async {
+    final id = await repo.insertIfNew(rec());
+    await repo.updateStatus(
+      id!,
+      SmsStatus.queued,
+      updatedAt: 10,
+      nextAttemptAt: 5000,
+    );
+    expect((await repo.queued()).single.nextAttemptAt, 5000);
+
+    // Success clears the schedule (passing null must actually null the column).
+    await repo.updateStatus(
+      id,
+      SmsStatus.success,
+      updatedAt: 20,
+      nextAttemptAt: null,
+    );
+    expect((await repo.history()).single.nextAttemptAt, isNull);
+  });
+
+  test('dueForDelivery skips rows scheduled in the future', () async {
+    await repo.insertIfNew(rec(content: 'due-null', timestamp: 3000));
+    await repo.insertIfNew(
+      rec(content: 'due-past', timestamp: 1000, nextAttemptAt: 400),
+    );
+    await repo.insertIfNew(
+      rec(content: 'not-due', timestamp: 2000, nextAttemptAt: 999),
+    );
+    await repo.insertIfNew(
+      rec(content: 'done', status: SmsStatus.success, timestamp: 500),
+    );
+
+    final due = await repo.dueForDelivery(500);
+
+    // Oldest-first, future-scheduled and terminal rows excluded.
+    expect(due.map((r) => r.content), ['due-past', 'due-null']);
+  });
+
+  test('countFailed counts only failed rows', () async {
+    await repo.insertIfNew(rec(content: 'a', status: SmsStatus.failure));
+    await repo.insertIfNew(rec(content: 'b', status: SmsStatus.failure));
+    await repo.insertIfNew(rec(content: 'c', status: SmsStatus.success));
+    await repo.insertIfNew(rec(content: 'd'));
+
+    expect(await repo.countFailed(), 2);
+  });
+
+  test('requeueFailed requeues failures for one more attempt', () async {
+    await repo.insertIfNew(
+      rec(content: 'f', status: SmsStatus.failure, nextAttemptAt: 12345),
+    );
+    await repo.insertIfNew(rec(content: 'ok', status: SmsStatus.success));
+
+    await repo.requeueFailed(777, attempts: 9);
+
+    final requeued = (await repo.dueForDelivery(777)).single;
+    expect(requeued.content, 'f');
+    expect(requeued.status, SmsStatus.queued);
+    expect(requeued.attempts, 9);
+    expect(requeued.nextAttemptAt, isNull); // due immediately
+    // The successful row is untouched.
+    expect(await repo.countFailed(), 0);
+    expect((await repo.history()).single.content, 'ok');
   });
 }

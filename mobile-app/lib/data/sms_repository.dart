@@ -26,12 +26,49 @@ class SmsRepository {
     return id == 0 ? null : id;
   }
 
-  /// Queued + in-flight records, oldest first (delivery order).
+  /// Queued + in-flight records, oldest first. Used by the UI Queued section,
+  /// so it includes rows still waiting on a scheduled `next_attempt_at`.
   Future<List<SmsRecord>> queued() => _query(
     where: 'status IN (?, ?)',
     whereArgs: [SmsStatus.queued.name, SmsStatus.sending.name],
     orderBy: 'timestamp ASC',
   );
+
+  /// Queued records eligible for delivery right now, oldest first. Rows whose
+  /// `next_attempt_at` is still in the future are skipped. `sending` rows are
+  /// excluded — [reclaimStale] returns orphaned ones to `queued` first.
+  Future<List<SmsRecord>> dueForDelivery(int now) => _query(
+    where: 'status = ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)',
+    whereArgs: [SmsStatus.queued.name, now],
+    orderBy: 'timestamp ASC',
+  );
+
+  /// Number of records that have exhausted their retries.
+  Future<int> countFailed() async {
+    final rows = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM $_table WHERE status = ?',
+      [SmsStatus.failure.name],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  /// Manual retry: returns all failed rows to `queued` for one more attempt.
+  ///
+  /// [attempts] is pre-set to `maxAttempts - 1` so the single-send flush tries
+  /// exactly once and, on failure, transitions straight back to `failure`.
+  Future<void> requeueFailed(int now, {required int attempts}) async {
+    await _db.update(
+      _table,
+      {
+        'status': SmsStatus.queued.name,
+        'attempts': attempts,
+        'next_attempt_at': null,
+        'updated_at': now,
+      },
+      where: 'status = ?',
+      whereArgs: [SmsStatus.failure.name],
+    );
+  }
 
   /// Last [limit] finished records, most recently updated first.
   Future<List<SmsRecord>> history({int limit = kHistoryLimit}) => _query(
@@ -47,6 +84,7 @@ class SmsRepository {
     int? attempts,
     String? lastError,
     required int updatedAt,
+    int? nextAttemptAt,
   }) async {
     await _db.update(
       _table,
@@ -56,6 +94,11 @@ class SmsRepository {
         // Null-aware: omit so an in-flight retry keeps its prior error.
         'last_error': ?lastError,
         'updated_at': updatedAt,
+        // NOT null-aware: always written so the scheduled retry can be cleared
+        // (success / terminal failure pass null) or set (requeue passes a
+        // future time). A null-aware entry would omit the key and leave a
+        // stale schedule behind.
+        'next_attempt_at': nextAttemptAt,
       },
       where: 'id = ?',
       whereArgs: [id],
