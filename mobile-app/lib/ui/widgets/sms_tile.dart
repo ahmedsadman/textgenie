@@ -19,7 +19,9 @@ class SmsTile extends StatelessWidget {
   String _formatTime(int millis) {
     final dt = DateTime.fromMillisecondsSinceEpoch(millis);
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${dt.year}-${two(dt.month)}-${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}';
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final period = dt.hour < 12 ? 'AM' : 'PM';
+    return '${dt.year}-${two(dt.month)}-${two(dt.day)} $hour12:${two(dt.minute)} $period';
   }
 
   @override
