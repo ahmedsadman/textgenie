@@ -18,6 +18,7 @@ Future<void> _pumpHome(
   required SettingsState settings,
   List<SmsRecord> queued = const [],
   List<SmsRecord> history = const [],
+  int failedCount = 0,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -25,6 +26,7 @@ Future<void> _pumpHome(
         settingsControllerProvider.overrideWith(() => _StubSettings(settings)),
         queuedProvider.overrideWith((ref) => Stream.value(queued)),
         historyProvider.overrideWith((ref) => Stream.value(history)),
+        failedCountProvider.overrideWith((ref) => Stream.value(failedCount)),
       ],
       child: MaterialApp(theme: AppTheme.theme, home: const HomePage()),
     ),
@@ -110,5 +112,78 @@ void main() {
     );
     expect(find.text('No messages sent yet.'), findsOneWidget);
     expect(find.text('Showing last 10 records'), findsNothing);
+  });
+
+  testWidgets('shows retry icon when failures exist and webhook set', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(
+        webhookUrl: 'https://x.dev',
+        resolveContacts: true,
+      ),
+      history: [_rec(status: SmsStatus.failure)],
+      failedCount: 1,
+    );
+    expect(find.byTooltip('Retry failed'), findsOneWidget);
+  });
+
+  testWidgets('hides retry icon when there are no failures', (tester) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(
+        webhookUrl: 'https://x.dev',
+        resolveContacts: true,
+      ),
+      history: [_rec(status: SmsStatus.success)],
+    );
+    expect(find.byTooltip('Retry failed'), findsNothing);
+  });
+
+  testWidgets('hides retry icon when no webhook configured', (tester) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(webhookUrl: null, resolveContacts: true),
+      history: [_rec(status: SmsStatus.failure)],
+      failedCount: 1,
+    );
+    expect(find.byTooltip('Retry failed'), findsNothing);
+  });
+
+  testWidgets('shows send-queued icon when queue has items and webhook set', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(
+        webhookUrl: 'https://x.dev',
+        resolveContacts: true,
+      ),
+      queued: [_rec()],
+    );
+    expect(find.byTooltip('Send queued now'), findsOneWidget);
+  });
+
+  testWidgets('hides send-queued icon when the queue is empty', (tester) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(
+        webhookUrl: 'https://x.dev',
+        resolveContacts: true,
+      ),
+    );
+    expect(find.byTooltip('Send queued now'), findsNothing);
+  });
+
+  testWidgets('hides send-queued icon when no webhook configured', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      settings: const SettingsState(webhookUrl: null, resolveContacts: true),
+      queued: [_rec()],
+    );
+    expect(find.byTooltip('Send queued now'), findsNothing);
   });
 }
