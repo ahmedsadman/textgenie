@@ -121,10 +121,7 @@ export default function CategoriesSection() {
               <div className="flex flex-wrap gap-2">
                 {sortedCategories.map((category) =>
                   editingId === category.id ? (
-                    <div
-                      key={category.id}
-                      className="flex items-center gap-1"
-                    >
+                    <div key={category.id} className="flex items-center gap-1">
                       <Input
                         ref={editInputRef}
                         value={editingName}
