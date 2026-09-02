@@ -988,4 +988,89 @@ describe("TransactionsSection", () => {
       screen.queryByRole("button", { name: /reset filters to default/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows date/time in collapsed rows without needing to expand", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json(sampleTransactions),
+      ),
+    );
+    renderWithQueryClient(<TransactionsSection />);
+
+    expect(await screen.findByText(/20th Jun/)).toBeInTheDocument();
+    expect(screen.getByText(/19th Jun/)).toBeInTheDocument();
+  });
+
+  it("does not duplicate date in expanded detail after showing it in collapsed row", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json(sampleTransactions),
+      ),
+    );
+    renderWithQueryClient(<TransactionsSection />);
+
+    const row = await screen.findByRole("button", {
+      name: /toggle message for brac \+1,500/i,
+    });
+    await userEvent.setup().click(row);
+
+    const dateElements = screen.getAllByText(/20th Jun/);
+    expect(dateElements).toHaveLength(1);
+  });
+
+  it("keeps bank name and type dropdown in expanded detail", async () => {
+    server.use(
+      http.get("/api/transactions", () =>
+        HttpResponse.json(sampleTransactions),
+      ),
+    );
+    renderWithQueryClient(<TransactionsSection />);
+
+    const row = await screen.findByRole("button", {
+      name: /toggle message for brac \+1,500/i,
+    });
+    await userEvent.setup().click(row);
+
+    expect(screen.getByText(/income/i)).toBeInTheDocument();
+  });
+
+  it("omits bank/credit row in expanded detail when neither field exists", async () => {
+    const noBankTx = {
+      transactions: [
+        {
+          id: 50,
+          message_id: 500,
+          bank_id: null,
+          bank_name: null,
+          bank_account_type: null,
+          sender: "bKash",
+          normalized_amount: "100.00",
+          normalized_currency: "BDT" as const,
+          original_amount: null,
+          original_currency: null,
+          type: "expense" as const,
+          date: "2026-06-18T08:00:00Z",
+          paired_with_id: null,
+          paired_with_message_id: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      totals: { income: "0.00", expense: "100.00" },
+    };
+
+    server.use(
+      http.get("/api/transactions", () => HttpResponse.json(noBankTx)),
+    );
+    renderWithQueryClient(<TransactionsSection />);
+
+    const row = await screen.findByRole("button", {
+      name: /toggle message for bKash/i,
+    });
+    await userEvent.setup().click(row);
+
+    expect(screen.getByText(/18th Jun/)).toBeInTheDocument();
+    expect(screen.queryByText(/·$/)).not.toBeInTheDocument();
+  });
 });

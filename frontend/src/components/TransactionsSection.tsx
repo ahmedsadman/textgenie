@@ -380,7 +380,7 @@ export default function TransactionsSection() {
                           />
                         )}
                       </div>
-                      <div className="mt-0.5 hidden truncate text-xs text-muted-foreground sm:block">
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
                         {formatMessageDateTime(tx.date)}
                       </div>
                     </div>
@@ -401,18 +401,20 @@ export default function TransactionsSection() {
                   <CollapsibleContent>
                     <div className="ml-4 flex flex-col gap-2 border-l-2 border-border bg-muted/30 py-2.5 pr-3 pl-4 text-sm text-muted-foreground">
                       <div className="flex items-center justify-between gap-2 sm:hidden">
-                        <span className="truncate text-xs">
-                          {tx.bank_name && <>{tx.bank_name} · </>}
-                          {tx.bank_account_type === "credit" && (
-                            <span
-                              className="text-amber-700 dark:text-amber-400"
-                              title="Credit card — excluded from bank balance"
-                            >
-                              Credit ·{" "}
-                            </span>
-                          )}
-                          {formatMessageDateTime(tx.date)}
-                        </span>
+                        {(tx.bank_name ||
+                          tx.bank_account_type === "credit") && (
+                          <span className="truncate text-xs">
+                            {tx.bank_name && <>{tx.bank_name} · </>}
+                            {tx.bank_account_type === "credit" && (
+                              <span
+                                className="text-amber-700 dark:text-amber-400"
+                                title="Credit card — excluded from bank balance"
+                              >
+                                Credit
+                              </span>
+                            )}
+                          </span>
+                        )}
                         {typeSelect}
                       </div>
                       <MessageBlock
