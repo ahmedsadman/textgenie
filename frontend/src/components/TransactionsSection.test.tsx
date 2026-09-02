@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import TransactionsSection from "@/components/TransactionsSection";
 import { server } from "@/mocks/server";
@@ -89,22 +89,41 @@ const pairedTransfers = {
   totals: { income: "0.00", expense: "0.00" },
 };
 
+const emptyTransactions = {
+  transactions: [],
+  total: 0,
+  page: 1,
+  page_size: 10,
+  totals: { income: "0", expense: "0" },
+};
+
+function makeMessage(
+  id: number,
+  sender: string,
+  content: string,
+  date = "2026-06-20T10:00:00Z",
+) {
+  return {
+    id,
+    sender,
+    content,
+    received_at: date,
+    category: null,
+    created_at: date,
+  };
+}
+
 describe("TransactionsSection", () => {
   beforeEach(() => {
     localStorage.clear();
-  });
-
-  afterEach(() => {
-    localStorage.clear();
-  });
-
-  it("renders totals and a list of transactions", async () => {
     server.use(
       http.get("/api/transactions", () =>
         HttpResponse.json(sampleTransactions),
       ),
     );
+  });
 
+  it("renders totals and a list of transactions", async () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
@@ -119,15 +138,7 @@ describe("TransactionsSection", () => {
 
   it("shows empty state when there are no transactions", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        }),
-      ),
+      http.get("/api/transactions", () => HttpResponse.json(emptyTransactions)),
     );
 
     renderWithQueryClient(<TransactionsSection />);
@@ -144,13 +155,7 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", ({ request }) => {
         receivedParams = new URL(request.url).searchParams;
-        return HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        });
+        return HttpResponse.json(emptyTransactions);
       }),
     );
 
@@ -168,13 +173,7 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", ({ request }) => {
         calls.push(new URL(request.url).searchParams);
-        return HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        });
+        return HttpResponse.json(emptyTransactions);
       }),
     );
 
@@ -196,18 +195,10 @@ describe("TransactionsSection", () => {
 
   it("expands a transaction row to show its source message", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.get("/api/messages/10", () =>
-        HttpResponse.json({
-          id: 10,
-          sender: "BRAC",
-          content: "You received Tk 1500 in your account",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        }),
+        HttpResponse.json(
+          makeMessage(10, "BRAC", "You received Tk 1500 in your account"),
+        ),
       ),
     );
 
@@ -231,18 +222,8 @@ describe("TransactionsSection", () => {
 
   it("collapses a transaction row when toggled again", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.get("/api/messages/10", () =>
-        HttpResponse.json({
-          id: 10,
-          sender: "BRAC",
-          content: "Source message body",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        }),
+        HttpResponse.json(makeMessage(10, "BRAC", "Source message body")),
       ),
     );
 
@@ -269,19 +250,11 @@ describe("TransactionsSection", () => {
   it("does not refetch a message that is already cached", async () => {
     let messageCallCount = 0;
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.get("/api/messages/10", () => {
         messageCallCount += 1;
-        return HttpResponse.json({
-          id: 10,
-          sender: "BRAC",
-          content: "Cached message body",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        });
+        return HttpResponse.json(
+          makeMessage(10, "BRAC", "Cached message body"),
+        );
       }),
     );
 
@@ -312,28 +285,13 @@ describe("TransactionsSection", () => {
 
   it("expands two rows independently and shows each message", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.get("/api/messages/10", () =>
-        HttpResponse.json({
-          id: 10,
-          sender: "BRAC",
-          content: "Income message",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        }),
+        HttpResponse.json(makeMessage(10, "BRAC", "Income message")),
       ),
       http.get("/api/messages/11", () =>
-        HttpResponse.json({
-          id: 11,
-          sender: "BRAC",
-          content: "Expense message",
-          received_at: "2026-06-19T10:00:00Z",
-          category: null,
-          created_at: "2026-06-19T10:00:00Z",
-        }),
+        HttpResponse.json(
+          makeMessage(11, "BRAC", "Expense message", "2026-06-19T10:00:00Z"),
+        ),
       ),
     );
 
@@ -358,22 +316,12 @@ describe("TransactionsSection", () => {
   it("shows an error with retry when message fetch fails, then recovers", async () => {
     let attempt = 0;
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.get("/api/messages/10", () => {
         attempt += 1;
-        if (attempt === 1) {
-          return new HttpResponse(null, { status: 500 });
-        }
-        return HttpResponse.json({
-          id: 10,
-          sender: "BRAC",
-          content: "Recovered message body",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        });
+        if (attempt === 1) return new HttpResponse(null, { status: 500 });
+        return HttpResponse.json(
+          makeMessage(10, "BRAC", "Recovered message body"),
+        );
       }),
     );
 
@@ -427,12 +375,6 @@ describe("TransactionsSection", () => {
   });
 
   it("does not show the link icon on unpaired rows", async () => {
-    server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
-    );
-
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
@@ -488,24 +430,19 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", () => HttpResponse.json(pairedTransfers)),
       http.get("/api/messages/200", () =>
-        HttpResponse.json({
-          id: 200,
-          sender: "MTB",
-          content: "Payment of 2951 credited to your card 1234",
-          received_at: "2026-06-20T10:00:00Z",
-          category: null,
-          created_at: "2026-06-20T10:00:00Z",
-        }),
+        HttpResponse.json(
+          makeMessage(200, "MTB", "Payment of 2951 credited to your card 1234"),
+        ),
       ),
       http.get("/api/messages/201", () =>
-        HttpResponse.json({
-          id: 201,
-          sender: "CITY",
-          content: "Acct debit 2951 BDT. Bal 50000",
-          received_at: "2026-06-20T10:02:00Z",
-          category: null,
-          created_at: "2026-06-20T10:02:00Z",
-        }),
+        HttpResponse.json(
+          makeMessage(
+            201,
+            "CITY",
+            "Acct debit 2951 BDT. Bal 50000",
+            "2026-06-20T10:02:00Z",
+          ),
+        ),
       ),
     );
 
@@ -585,9 +522,6 @@ describe("TransactionsSection", () => {
 
   it("rolls back the optimistic update and shows a toast when PATCH fails", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
       http.patch("/api/transactions/2", () =>
         HttpResponse.json({ detail: "boom" }, { status: 500 }),
       ),
@@ -733,13 +667,7 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", ({ request }) => {
         calls.push(new URL(request.url).searchParams);
-        return HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        });
+        return HttpResponse.json(emptyTransactions);
       }),
     );
 
@@ -763,13 +691,7 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", ({ request }) => {
         calls.push(new URL(request.url).searchParams);
-        return HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        });
+        return HttpResponse.json(emptyTransactions);
       }),
     );
 
@@ -837,13 +759,7 @@ describe("TransactionsSection", () => {
     server.use(
       http.get("/api/transactions", ({ request }) => {
         calls.push(new URL(request.url).searchParams);
-        return HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        });
+        return HttpResponse.json(emptyTransactions);
       }),
     );
 
@@ -871,15 +787,7 @@ describe("TransactionsSection", () => {
 
   it("persists the type filter and sort selection to localStorage", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        }),
-      ),
+      http.get("/api/transactions", () => HttpResponse.json(emptyTransactions)),
     );
 
     renderWithQueryClient(<TransactionsSection />);
@@ -905,15 +813,7 @@ describe("TransactionsSection", () => {
 
   it("persists the selected preset to localStorage", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        }),
-      ),
+      http.get("/api/transactions", () => HttpResponse.json(emptyTransactions)),
     );
 
     renderWithQueryClient(<TransactionsSection />);
@@ -932,15 +832,7 @@ describe("TransactionsSection", () => {
 
   it("resets filters to defaults with the Reset button", async () => {
     server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json({
-          transactions: [],
-          total: 0,
-          page: 1,
-          page_size: 10,
-          totals: { income: "0", expense: "0" },
-        }),
-      ),
+      http.get("/api/transactions", () => HttpResponse.json(emptyTransactions)),
     );
 
     renderWithQueryClient(<TransactionsSection />);
@@ -990,11 +882,6 @@ describe("TransactionsSection", () => {
   });
 
   it("shows date/time in collapsed rows without needing to expand", async () => {
-    server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
-    );
     renderWithQueryClient(<TransactionsSection />);
 
     expect(await screen.findByText(/20th Jun/)).toBeInTheDocument();
@@ -1002,11 +889,6 @@ describe("TransactionsSection", () => {
   });
 
   it("does not duplicate date in expanded detail after showing it in collapsed row", async () => {
-    server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
-    );
     renderWithQueryClient(<TransactionsSection />);
 
     const row = await screen.findByRole("button", {
@@ -1019,11 +901,6 @@ describe("TransactionsSection", () => {
   });
 
   it("keeps bank name and type dropdown in expanded detail", async () => {
-    server.use(
-      http.get("/api/transactions", () =>
-        HttpResponse.json(sampleTransactions),
-      ),
-    );
     renderWithQueryClient(<TransactionsSection />);
 
     const row = await screen.findByRole("button", {
