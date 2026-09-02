@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +29,7 @@ import {
   useDeleteCategory,
   useUpdateCategory,
 } from "@/hooks/queries/useCategories";
+import { getCategoryColor, cn } from "@/lib/utils";
 import type { Category } from "@/lib/types";
 
 export default function CategoriesSection() {
@@ -116,97 +118,106 @@ export default function CategoriesSection() {
                 No categories yet. Add one above.
               </p>
             ) : (
-              <ul className="divide-y">
-                {sortedCategories.map((category) => (
-                  <li
-                    key={category.id}
-                    className="flex items-center gap-2 py-2"
-                  >
-                    {editingId === category.id ? (
-                      <>
-                        <Input
-                          ref={editInputRef}
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit(category.id);
-                            if (e.key === "Escape") cancelEditing();
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => saveEdit(category.id)}
-                          aria-label="Save"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={cancelEditing}
-                          aria-label="Cancel"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex-1 text-sm">{category.name}</span>
-                        {!category.is_default && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => startEditing(category)}
-                              aria-label="Edit"
+              <div className="flex flex-wrap gap-2">
+                {sortedCategories.map((category) =>
+                  editingId === category.id ? (
+                    <div
+                      key={category.id}
+                      className="flex items-center gap-1"
+                    >
+                      <Input
+                        ref={editInputRef}
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(category.id);
+                          if (e.key === "Escape") cancelEditing();
+                        }}
+                        className="h-7 min-w-[120px] rounded-full text-sm"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => saveEdit(category.id)}
+                        aria-label="Save"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={cancelEditing}
+                        aria-label="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Badge
+                      key={category.id}
+                      variant="outline"
+                      className={cn(
+                        "min-w-32 justify-center gap-1 rounded-full px-3 py-1 text-sm",
+                        getCategoryColor(category.id).text,
+                        getCategoryColor(category.id).ring,
+                      )}
+                    >
+                      {category.name}
+                      {!category.is_default && (
+                        <span className="flex items-center shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => startEditing(category)}
+                            aria-label="Edit"
+                          >
+                            <Pencil />
+                          </Button>
+                          <AlertDialog className="inline">
+                            <AlertDialogTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="m-0"
+                                  aria-label="Delete"
+                                />
+                              }
                             >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger
-                                render={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Delete"
-                                  />
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Delete category
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete &quot;
-                                    {category.name}&quot;? This action cannot be
-                                    undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    variant="destructive"
-                                    onClick={() =>
-                                      deleteCategory.mutate(category.id)
-                                    }
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                              <Trash2 />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete category
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete &quot;
+                                  {category.name}&quot;? This action cannot be
+                                  undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  variant="destructive"
+                                  onClick={() =>
+                                    deleteCategory.mutate(category.id)
+                                  }
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </span>
+                      )}
+                    </Badge>
+                  ),
+                )}
+              </div>
             )}
           </>
         )}
