@@ -77,7 +77,7 @@ function ordinalSuffix(day: number): string {
 export function formatMessageDateTime(iso: string): string {
   const d = new Date(iso);
   const day = d.getDate();
-  const month = d.toLocaleString("en-US", { month: "long" });
+  const month = d.toLocaleString("en-US", { month: "short" });
   const year = d.getFullYear();
   const time = d.toLocaleTimeString("en-US", {
     hour: "numeric",
