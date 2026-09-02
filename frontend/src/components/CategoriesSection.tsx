@@ -172,7 +172,7 @@ export default function CategoriesSection() {
                           >
                             <Pencil />
                           </Button>
-                          <AlertDialog className="inline">
+                          <AlertDialog>
                             <AlertDialogTrigger
                               render={
                                 <Button
