@@ -16,12 +16,12 @@ describe("formatMessageDateTime — live current year (no fake timers)", () => {
     const now = new Date();
     const sample = new Date(
       now.getFullYear(),
-      5, // June
+      5, // Jun
       27,
       2,
       11,
     ).toISOString();
-    expect(formatMessageDateTime(sample)).toBe("27th June at 2:11 AM");
+    expect(formatMessageDateTime(sample)).toBe("27th Jun at 2:11 AM");
   });
 });
 
@@ -40,13 +40,13 @@ describe("formatMessageDateTime", () => {
   describe("year omitted when it matches the current year", () => {
     it("renders without a year for a same-year date", () => {
       expect(formatMessageDateTime(localDate(2026, 6, 27, 2, 11))).toBe(
-        "27th June at 2:11 AM",
+        "27th Jun at 2:11 AM",
       );
     });
 
     it("renders with a year for a different-year date", () => {
       expect(formatMessageDateTime(localDate(2024, 6, 27, 2, 11))).toBe(
-        "27th June, 2024 at 2:11 AM",
+        "27th Jun, 2024 at 2:11 AM",
       );
     });
   });
@@ -67,7 +67,7 @@ describe("formatMessageDateTime", () => {
       [31, "31st"],
     ])("day %i renders with suffix %s", (day, expectedPrefix) => {
       expect(formatMessageDateTime(localDate(2024, 1, day, 9, 5))).toBe(
-        `${expectedPrefix} January, 2024 at 9:05 AM`,
+        `${expectedPrefix} Jan, 2024 at 9:05 AM`,
       );
     });
   });
@@ -75,26 +75,26 @@ describe("formatMessageDateTime", () => {
   describe("12h clock edge cases", () => {
     it("renders midnight as 12:00 AM", () => {
       expect(formatMessageDateTime(localDate(2024, 1, 5, 0, 0))).toBe(
-        "5th January, 2024 at 12:00 AM",
+        "5th Jan, 2024 at 12:00 AM",
       );
     });
 
     it("renders noon as 12:00 PM", () => {
       expect(formatMessageDateTime(localDate(2024, 1, 5, 12, 0))).toBe(
-        "5th January, 2024 at 12:00 PM",
+        "5th Jan, 2024 at 12:00 PM",
       );
     });
 
     it("renders afternoon hours as PM", () => {
       expect(formatMessageDateTime(localDate(2024, 1, 5, 15, 30))).toBe(
-        "5th January, 2024 at 3:30 PM",
+        "5th Jan, 2024 at 3:30 PM",
       );
     });
   });
 
   it("zero-pads minutes below 10", () => {
     expect(formatMessageDateTime(localDate(2024, 6, 27, 2, 9))).toBe(
-      "27th June, 2024 at 2:09 AM",
+      "27th Jun, 2024 at 2:09 AM",
     );
   });
 });
