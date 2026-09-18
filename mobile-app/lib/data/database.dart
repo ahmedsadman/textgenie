@@ -10,7 +10,10 @@ class AppDatabase {
 
   static const String fileName = 'textgenie.db';
   static const String table = 'sms_records';
-  static const int _version = 2;
+
+  /// Blob cache of the last successful finance API responses (offline support).
+  static const String financeCacheTable = 'finance_cache';
+  static const int _version = 3;
 
   static Future<Database> open() async {
     final path = p.join(await getDatabasesPath(), fileName);
@@ -43,6 +46,17 @@ class AppDatabase {
       CREATE UNIQUE INDEX idx_sms_unique
       ON $table (sender, timestamp, content)
     ''');
+    await _createFinanceCache(db);
+  }
+
+  static Future<void> _createFinanceCache(Database db) async {
+    await db.execute('''
+      CREATE TABLE $financeCacheTable (
+        cache_key TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   /// Applies incremental migrations. Each version's delta is additive so
@@ -54,6 +68,9 @@ class AppDatabase {
   ) async {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE $table ADD COLUMN next_attempt_at INTEGER');
+    }
+    if (oldVersion < 3) {
+      await _createFinanceCache(db);
     }
   }
 }

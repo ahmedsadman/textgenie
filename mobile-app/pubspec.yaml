@@ -47,6 +47,7 @@ dependencies:
   catppuccin_flutter: ^1.0.0
   mobile_scanner: ^7.4.0
   flutter_local_notifications: ^19.0.0
+  fl_chart: ^1.1.1
 
 dev_dependencies:
   flutter_test:
