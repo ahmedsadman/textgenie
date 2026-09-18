@@ -11,6 +11,7 @@ from app.constants import TransactionType
 from app.models import Bank, Message, Transaction, User
 from app.schemas import (
     MonthlySummaryBucket,
+    TransactionAveragesResponse,
     TransactionResponse,
     TransactionTotals,
 )
@@ -28,6 +29,32 @@ def _base_query(
     if to_date is not None:
         query = query.filter(Transaction.date <= to_date)
     return query
+
+
+def _income_expense_sum_cols():
+    """Labeled `income`/`expense` sum columns; transfers contribute 0.
+
+    Shared by the totals in `list_transactions` and the all-time averages.
+    """
+    income = func.coalesce(
+        func.sum(
+            case(
+                (Transaction.type == "income", Transaction.normalized_amount),
+                else_=0,
+            )
+        ),
+        0,
+    ).label("income")
+    expense = func.coalesce(
+        func.sum(
+            case(
+                (Transaction.type == "expense", Transaction.normalized_amount),
+                else_=0,
+            )
+        ),
+        0,
+    ).label("expense")
+    return income, expense
 
 
 def _next_month(d: date) -> date:
@@ -106,6 +133,44 @@ def monthly_summary(
     ]
 
 
+def all_time_averages(db: DBSession, user: User) -> TransactionAveragesResponse:
+    """All-time average monthly spend and saving (net) for the user.
+
+    The divisor is every calendar month between the earliest and latest
+    income/expense transaction, inclusive — empty months count as real zero
+    months (consistent with the gap-filled summary graph). Transfers are
+    excluded from both the sums and the span.
+    """
+    income_col, expense_col = _income_expense_sum_cols()
+    row = (
+        _base_query(db, user, None, None)
+        .filter(Transaction.type.in_(("income", "expense")))
+        .with_entities(
+            income_col,
+            expense_col,
+            func.min(Transaction.date).label("first"),
+            func.max(Transaction.date).label("last"),
+        )
+        .one()
+    )
+
+    if row.first is None:
+        zero = Decimal("0.00")
+        return TransactionAveragesResponse(avg_spend=zero, avg_saving=zero)
+
+    months = (
+        (row.last.year - row.first.year) * 12 + (row.last.month - row.first.month) + 1
+    )
+
+    total_income = Decimal(str(row.income))
+    total_expense = Decimal(str(row.expense))
+    cents = Decimal("0.01")
+    return TransactionAveragesResponse(
+        avg_spend=(total_expense / months).quantize(cents),
+        avg_saving=((total_income - total_expense) / months).quantize(cents),
+    )
+
+
 def list_transactions(
     db: DBSession,
     user: User,
@@ -121,26 +186,8 @@ def list_transactions(
     base = _base_query(db, user, from_date, to_date)
 
     # Totals scoped to date range only; type filter ignored; transfers excluded.
-    sums = base.with_entities(
-        func.coalesce(
-            func.sum(
-                case(
-                    (Transaction.type == "income", Transaction.normalized_amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("income"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (Transaction.type == "expense", Transaction.normalized_amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("expense"),
-    ).one()
+    income_col, expense_col = _income_expense_sum_cols()
+    sums = base.with_entities(income_col, expense_col).one()
     totals = TransactionTotals(
         income=Decimal(str(sums.income)),
         expense=Decimal(str(sums.expense)),

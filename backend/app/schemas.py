@@ -195,6 +195,11 @@ class TransactionTotals(BaseModel):
     expense: Decimal
 
 
+class TransactionAveragesResponse(BaseModel):
+    avg_spend: Decimal
+    avg_saving: Decimal
+
+
 class PaginatedTransactionsResponse(BaseModel):
     transactions: list[TransactionResponse]
     total: int
