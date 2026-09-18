@@ -16,6 +16,7 @@ import type {
   PaginatedMessages,
   PaginatedTransactions,
   Transaction,
+  TransactionAverages,
   TransactionSummary,
   TransactionType,
   User,
@@ -199,6 +200,11 @@ export const api = {
   getTransactionSummary: (params: TransactionSummaryQuery) =>
     client
       .get<TransactionSummary>("/transactions/summary", { params })
+      .then((r) => r.data),
+
+  getTransactionAverages: () =>
+    client
+      .get<TransactionAverages>("/transactions/averages")
       .then((r) => r.data),
 
   updateTransaction: (id: number, type: TransactionType) =>
