@@ -76,4 +76,51 @@ void main() {
 
     await db.close();
   });
+
+  test('v2 -> v3 adds finance_cache and preserves existing rows', () async {
+    var db = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: _createV1,
+        onUpgrade: AppDatabase.onUpgrade,
+      ),
+    );
+    await db.insert(AppDatabase.table, {
+      'sender': '+100',
+      'content': 'legacy',
+      'timestamp': 1000,
+      'status': 'queued',
+      'attempts': 0,
+      'updated_at': 5,
+    });
+    await db.close();
+
+    db = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: AppDatabase.createSchema,
+        onUpgrade: AppDatabase.onUpgrade,
+      ),
+    );
+
+    final tables = (await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table'",
+    )).map((r) => r['name']).toList();
+    expect(tables, contains(AppDatabase.financeCacheTable));
+
+    // Existing SMS rows survive the upgrade.
+    expect((await db.query(AppDatabase.table)).single['content'], 'legacy');
+
+    // The new table is usable.
+    await db.insert(AppDatabase.financeCacheTable, {
+      'cache_key': '/banks',
+      'payload': '[]',
+      'fetched_at': 1,
+    });
+    expect((await db.query(AppDatabase.financeCacheTable)).length, 1);
+
+    await db.close();
+  });
 }
