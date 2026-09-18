@@ -150,3 +150,8 @@ export interface MonthlySummaryBucket {
 export interface TransactionSummary {
   series: MonthlySummaryBucket[];
 }
+
+export interface TransactionAverages {
+  avg_spend: string;
+  avg_saving: string;
+}

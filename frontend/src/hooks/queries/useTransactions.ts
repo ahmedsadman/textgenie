@@ -23,6 +23,13 @@ export function useTransactionSummary(params: TransactionSummaryQuery) {
   });
 }
 
+export function useTransactionAverages() {
+  return useQuery({
+    queryKey: transactionKeys.averages(),
+    queryFn: () => api.getTransactionAverages(),
+  });
+}
+
 interface UpdateTypeVars {
   id: number;
   type: TransactionType;
