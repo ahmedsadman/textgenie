@@ -11,6 +11,10 @@ class AppTheme {
 
   static Flavor get flavor => _flavor;
 
+  /// Semantic finance colors, themed to the Catppuccin palette.
+  static Color get income => _flavor.green;
+  static Color get expense => _flavor.red;
+
   static ThemeData get theme {
     final f = _flavor;
     final scheme = ColorScheme.dark(
