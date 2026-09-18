@@ -82,6 +82,37 @@ describe("FinancePage", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
+  it("shows monthly average spend and saving figures", async () => {
+    server.use(
+      http.get("/api/transactions/averages", () =>
+        HttpResponse.json({ avg_spend: "1234.56", avg_saving: "789.10" }),
+      ),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Avg Spend/Month")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Avg Saving/Month")).toBeInTheDocument();
+    expect(screen.getByText("1,234.56 BDT")).toBeInTheDocument();
+    expect(screen.getByText("789.10 BDT")).toBeInTheDocument();
+  });
+
+  it("shows a negative monthly saving average", async () => {
+    server.use(
+      http.get("/api/transactions/averages", () =>
+        HttpResponse.json({ avg_spend: "500.00", avg_saving: "-120.00" }),
+      ),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("-120.00 BDT")).toBeInTheDocument();
+    });
+  });
+
   it("adds a new bank via the modal", async () => {
     let createCalled = false;
     const newBank = {

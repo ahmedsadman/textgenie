@@ -13,6 +13,9 @@ export const handlers: RequestHandler[] = [
   http.get("/api/transactions/summary", () =>
     HttpResponse.json({ series: [] }),
   ),
+  http.get("/api/transactions/averages", () =>
+    HttpResponse.json({ avg_spend: "0.00", avg_saving: "0.00" }),
+  ),
   http.post("/api/auth/extend", () =>
     HttpResponse.json({ message: "Session extended" }),
   ),
