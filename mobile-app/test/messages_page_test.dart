@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:textgenie/models/sms_record.dart';
 import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
-import 'package:textgenie/ui/home_page.dart';
+import 'package:textgenie/ui/messages_page.dart';
 
 class _StubSettings extends SettingsController {
   _StubSettings(this._state);
@@ -28,7 +28,7 @@ Future<void> _pumpHome(
         historyProvider.overrideWith((ref) => Stream.value(history)),
         failedCountProvider.overrideWith((ref) => Stream.value(failedCount)),
       ],
-      child: MaterialApp(theme: AppTheme.theme, home: const HomePage()),
+      child: MaterialApp(theme: AppTheme.theme, home: const MessagesPage()),
     ),
   );
   await tester.pumpAndSettle();

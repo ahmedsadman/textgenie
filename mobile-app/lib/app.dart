@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'services/permissions.dart';
 import 'state/providers.dart';
 import 'theme/catppuccin_theme.dart';
-import 'ui/home_page.dart';
+import 'ui/finance_page.dart';
+import 'ui/messages_page.dart';
 import 'ui/settings_page.dart';
 
 class TextGenieApp extends StatelessWidget {
@@ -16,29 +17,41 @@ class TextGenieApp extends StatelessWidget {
       title: 'TextGenie',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      home: const _HomeShell(),
+      home: const RootShell(),
     );
   }
 }
 
-/// Persistent bottom-nav shell. Also requests permissions, starts the SMS
+/// Persistent bottom-nav shell. Tabs are ordered Finance, Messages, Settings
+/// with Finance shown first. Also requests permissions, starts the SMS
 /// listener, and flushes the queue when the app returns to the foreground.
-class _HomeShell extends ConsumerStatefulWidget {
-  const _HomeShell();
+///
+/// [pages] is only for tests: when provided, the shell renders those widgets
+/// instead of the real tabs and skips the plugin-backed bootstrap.
+class RootShell extends ConsumerStatefulWidget {
+  const RootShell({super.key}) : pages = null;
+
+  @visibleForTesting
+  const RootShell.withPages(this.pages, {super.key});
+
+  final List<Widget>? pages;
 
   @override
-  ConsumerState<_HomeShell> createState() => _HomeShellState();
+  ConsumerState<RootShell> createState() => _RootShellState();
 }
 
-class _HomeShellState extends ConsumerState<_HomeShell>
+class _RootShellState extends ConsumerState<RootShell>
     with WidgetsBindingObserver {
   int _index = 0;
 
-  static const _pages = [HomePage(), SettingsPage()];
+  static const _defaultPages = [FinancePage(), MessagesPage(), SettingsPage()];
+
+  List<Widget> get _pages => widget.pages ?? _defaultPages;
 
   @override
   void initState() {
     super.initState();
+    if (widget.pages != null) return; // test mode: no plugin bootstrap
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
@@ -58,7 +71,7 @@ class _HomeShellState extends ConsumerState<_HomeShell>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    if (widget.pages == null) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -71,9 +84,14 @@ class _HomeShellState extends ConsumerState<_HomeShell>
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Finance',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sms_outlined),
+            selectedIcon: Icon(Icons.sms),
+            label: 'Messages',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

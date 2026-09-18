@@ -7,9 +7,9 @@ import 'widgets/section_header.dart';
 import 'widgets/sms_tile.dart';
 import 'widgets/webhook_banner.dart';
 
-/// Home tab: the webhook banner (when unset), Queued and History sections.
-class HomePage extends ConsumerWidget {
-  const HomePage({super.key});
+/// Messages tab: the webhook banner (when unset), Queued and History sections.
+class MessagesPage extends ConsumerWidget {
+  const MessagesPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +29,7 @@ class HomePage extends ConsumerWidget {
         : 'Showing recent history only';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('TextGenie')),
+      appBar: AppBar(title: const Text('Messages')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(queuedProvider);
