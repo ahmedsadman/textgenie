@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, Request, Response
+from fastapi import Depends, Header, HTTPException, Request, Response
 from sqlalchemy.orm import Session as DBSession
 
 from app.config import (
@@ -143,6 +143,28 @@ def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> User:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     return user
+
+
+def get_user_by_api_token(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    db: DBSession = Depends(get_db),
+) -> User:
+    """Authenticate via an ``Authorization: Bearer <webhook_token>`` header,
+    falling back to the session cookie when no bearer token is supplied.
+
+    The per-user ``webhook_token`` doubles as a read-only mobile API key. Used
+    on read-only finance endpoints so the mobile app can authenticate without a
+    login session. Write endpoints remain cookie-only.
+    """
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        if token:
+            user = db.query(User).filter(User.webhook_token == token).first()
+            if user:
+                return user
+        raise HTTPException(status_code=401, detail="Invalid API token")
+    return get_current_user(request, db)
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

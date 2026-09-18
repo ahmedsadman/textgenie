@@ -9,7 +9,7 @@ from app.schemas import (
     BankUpdateRequest,
     MessageResponse,
 )
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.banks import (
     create_bank,
     delete_bank,
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/banks", tags=["banks"])
 
 @router.get("", response_model=list[BankResponse])
 def get_banks(
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     return list_banks(db, user)

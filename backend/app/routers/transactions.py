@@ -14,7 +14,7 @@ from app.schemas import (
     TransactionSummaryResponse,
     TransactionUpdateRequest,
 )
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.transactions import (
     all_time_averages,
     list_transactions,
@@ -34,7 +34,7 @@ def get_transactions(
     types: list[TransactionType] | None = Query(None),
     sort_by: Literal["date", "amount"] = Query("date"),
     sort_dir: Literal["asc", "desc"] = Query("desc"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     transactions, total, totals = list_transactions(
@@ -61,7 +61,7 @@ def get_transactions(
 def get_transaction_summary(
     from_date: datetime | None = Query(None),
     to_date: datetime | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     return TransactionSummaryResponse(
@@ -71,7 +71,7 @@ def get_transaction_summary(
 
 @router.get("/averages", response_model=TransactionAveragesResponse)
 def get_transaction_averages(
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     return all_time_averages(db, user)

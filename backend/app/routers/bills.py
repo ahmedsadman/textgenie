@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.database import get_db
 from app.models import User
 from app.schemas import BillResponse, BillUpdateRequest, PaginatedBillsResponse
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.bills import get_bill, list_bills, unlink_transactions
 
 router = APIRouter(prefix="/api/bills", tags=["bills"])
@@ -19,7 +19,7 @@ def get_bills(
     bank_id: int | None = Query(None),
     from_date: datetime | None = Query(None),
     to_date: datetime | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     bills, total = list_bills(
@@ -39,7 +39,7 @@ def get_bills(
 @router.get("/{bill_id}", response_model=BillResponse)
 def get_single_bill(
     bill_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     return get_bill(db, user, bill_id)

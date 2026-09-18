@@ -10,7 +10,7 @@ from app.schemas import (
     MetadataBlacklistUpdateRequest,
     WebhookSettingsResponse,
 )
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.settings import (
     get_currency,
     get_metadata_blacklist,
@@ -54,7 +54,7 @@ def update_blacklist(
 
 
 @router.get("/currency", response_model=CurrencySettingsResponse)
-def get_currency_setting(user: User = Depends(get_current_user)):
+def get_currency_setting(user: User = Depends(get_user_by_api_token)):
     return CurrencySettingsResponse(currency=get_currency(user))
 
 

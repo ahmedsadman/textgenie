@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.database import get_db
 from app.models import User
 from app.schemas import MessageResponse, PaginatedMessagesResponse, SmsMessageResponse
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.messages import (
     delete_message,
     get_message,
@@ -44,7 +44,7 @@ def get_senders(
 @router.get("/{message_id}", response_model=SmsMessageResponse)
 def get(
     message_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
     return get_message(db, user, message_id)
