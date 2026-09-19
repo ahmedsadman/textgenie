@@ -2,16 +2,22 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgenie/data/finance_repository.dart';
+import 'package:textgenie/data/settings_repository.dart';
 import 'package:textgenie/models/finance/summary.dart';
 import 'package:textgenie/state/finance_providers.dart';
+import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/widgets/finance/summary_graph_card.dart';
 
 Future<void> _pump(WidgetTester tester, Summary summary) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        settingsRepositoryProvider.overrideWithValue(SettingsRepository(prefs)),
         summaryProvider.overrideWith(
           (ref, arg) async => CachedResult(data: summary, stale: false),
         ),
