@@ -56,7 +56,7 @@ def test_bearer_accepted_on_read_only_finance_endpoints(client, db):
         "/api/banks",
         "/api/transactions",
         "/api/transactions/summary",
-        "/api/transactions/averages",
+        "/api/transactions/trends",
         "/api/bills",
         f"/api/bills/{bill.id}",
         "/api/settings/currency",

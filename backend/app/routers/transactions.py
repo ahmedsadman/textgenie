@@ -9,16 +9,16 @@ from app.database import get_db
 from app.models import User
 from app.schemas import (
     PaginatedTransactionsResponse,
-    TransactionAveragesResponse,
     TransactionResponse,
     TransactionSummaryResponse,
+    TransactionTrendsResponse,
     TransactionUpdateRequest,
 )
 from app.services.auth import get_current_user, get_user_by_api_token
 from app.services.transactions import (
-    all_time_averages,
     list_transactions,
     monthly_summary,
+    spending_trends,
     update_transaction,
 )
 
@@ -69,12 +69,12 @@ def get_transaction_summary(
     )
 
 
-@router.get("/averages", response_model=TransactionAveragesResponse)
-def get_transaction_averages(
+@router.get("/trends", response_model=TransactionTrendsResponse)
+def get_transaction_trends(
     user: User = Depends(get_user_by_api_token),
     db: DBSession = Depends(get_db),
 ):
-    return all_time_averages(db, user)
+    return spending_trends(db, user)
 
 
 @router.patch("/{transaction_id}", response_model=TransactionResponse)
