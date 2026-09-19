@@ -5,8 +5,8 @@ import '../../../models/finance/bank.dart';
 import '../../../models/finance/bill.dart';
 import '../../../state/finance_providers.dart';
 import '../section_header.dart';
+import '../skeleton.dart';
 import 'bill_row.dart';
-import 'finance_placeholders.dart';
 
 /// Per credit-card bills. Each card shows its latest bill by default; tapping
 /// the card header reveals previous bills. Hidden entirely when the user has no
@@ -16,8 +16,16 @@ class CreditCardBillsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final banks = ref.watch(banksProvider).value?.data;
-    final creditCards = banks?.where((b) => b.isCredit).toList() ?? const [];
+    final banksAsync = ref.watch(banksProvider);
+    final banks = banksAsync.value?.data;
+    if (banks == null) {
+      // Reserve the section with a skeleton while banks load so it doesn't pop
+      // in and shove the rest of the page down when data arrives.
+      return banksAsync.isLoading
+          ? const CreditCardBillsSkeleton()
+          : const SizedBox.shrink();
+    }
+    final creditCards = banks.where((b) => b.isCredit).toList();
     if (creditCards.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -61,7 +69,7 @@ class _BankBillsState extends ConsumerState<_BankBills> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: async.when(
         loading: () =>
-            _header(theme, trailing: const FinanceLoading(height: 20)),
+            _header(theme, trailing: const Skeleton(width: 56, height: 12)),
         error: (_, _) => _header(theme, subtitle: 'Could not load bills.'),
         data: (result) {
           final bills = [...result.data.bills]
