@@ -354,11 +354,6 @@ export default function TransactionsSection() {
                         <span className="truncate text-sm font-medium">
                           {tx.sender}
                         </span>
-                        {tx.bank_name && (
-                          <span className="hidden shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground sm:inline-flex">
-                            {tx.bank_name}
-                          </span>
-                        )}
                         {tx.bank_account_type === "credit" && (
                           <span
                             className="hidden shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-amber-800 sm:inline-flex dark:bg-amber-950 dark:text-amber-200"
@@ -401,18 +396,12 @@ export default function TransactionsSection() {
                   <CollapsibleContent>
                     <div className="ml-4 flex flex-col gap-2 border-l-2 border-border bg-muted/30 py-2.5 pr-3 pl-4 text-sm text-muted-foreground">
                       <div className="flex items-center justify-between gap-2 sm:hidden">
-                        {(tx.bank_name ||
-                          tx.bank_account_type === "credit") && (
-                          <span className="truncate text-xs">
-                            {tx.bank_name && <>{tx.bank_name} · </>}
-                            {tx.bank_account_type === "credit" && (
-                              <span
-                                className="text-amber-700 dark:text-amber-400"
-                                title="Credit card — excluded from bank balance"
-                              >
-                                Credit
-                              </span>
-                            )}
+                        {tx.bank_account_type === "credit" && (
+                          <span
+                            className="truncate text-xs text-amber-700 dark:text-amber-400"
+                            title="Credit card — excluded from bank balance"
+                          >
+                            Credit
                           </span>
                         )}
                         {typeSelect}
