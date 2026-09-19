@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgenie/data/finance_repository.dart';
+import 'package:textgenie/data/settings_repository.dart';
 import 'package:textgenie/models/finance/averages.dart';
 import 'package:textgenie/models/finance/bank.dart';
 import 'package:textgenie/models/finance/summary.dart';
@@ -10,7 +12,6 @@ import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/finance_page.dart';
-import 'package:textgenie/ui/widgets/finance/stats_card.dart';
 import 'package:textgenie/ui/widgets/finance/summary_graph_card.dart';
 import 'package:textgenie/ui/widgets/finance/total_balance_card.dart';
 import 'package:textgenie/ui/widgets/finance/transactions_section.dart';
@@ -43,14 +44,18 @@ Future<void> _pump(
   String? webhookUrl = 'https://host/api/webhook/tok',
   bool stale = false,
 }) async {
-  // A tall surface so every section lays out (the ListView is otherwise lazy).
+  // A tall surface so every section is laid out within the viewport.
   tester.view.physicalSize = const Size(1200, 4000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        settingsRepositoryProvider.overrideWithValue(SettingsRepository(prefs)),
         settingsControllerProvider.overrideWith(
           () => _StubSettings(
             SettingsState(webhookUrl: webhookUrl, resolveContacts: true),
@@ -90,15 +95,18 @@ void main() {
 
     expect(find.text('Finance'), findsOneWidget); // app bar
     expect(find.byType(TotalBalanceCard), findsOneWidget);
-    expect(find.byType(StatsCard), findsOneWidget);
     expect(find.byType(SummaryGraphCard), findsOneWidget);
     expect(find.byType(TransactionsSection), findsOneWidget);
 
+    // Averages are folded into the balance card (no separate StatsCard).
+    expect(find.text('AVG SPEND/MONTH'), findsOneWidget);
+    expect(find.text('AVG SAVING/MONTH'), findsOneWidget);
+
     final totalY = tester.getTopLeft(find.byType(TotalBalanceCard)).dy;
-    final statsY = tester.getTopLeft(find.byType(StatsCard)).dy;
+    final summaryY = tester.getTopLeft(find.byType(SummaryGraphCard)).dy;
     final txY = tester.getTopLeft(find.byType(TransactionsSection)).dy;
-    expect(totalY, lessThan(statsY));
-    expect(statsY, lessThan(txY));
+    expect(totalY, lessThan(summaryY));
+    expect(summaryY, lessThan(txY));
   });
 
   testWidgets('shows a connect prompt when no webhook is configured', (

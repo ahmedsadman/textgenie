@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:textgenie/data/finance_repository.dart';
+import 'package:textgenie/models/finance/averages.dart';
 import 'package:textgenie/models/finance/bank.dart';
 import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
@@ -33,6 +34,12 @@ Future<void> _pump(WidgetTester tester, List<Bank> banks) async {
         ),
         currencyProvider.overrideWith(
           (ref) async => const CachedResult(data: 'BDT', stale: false),
+        ),
+        averagesProvider.overrideWith(
+          (ref) async => CachedResult(
+            data: const Averages(avgSpend: '10', avgSaving: '5'),
+            stale: false,
+          ),
         ),
       ],
       child: MaterialApp(
