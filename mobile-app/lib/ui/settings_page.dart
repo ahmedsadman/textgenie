@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/permissions.dart';
 import '../state/providers.dart';
@@ -17,6 +18,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _urlController;
+  String? _version;
 
   @override
   void initState() {
@@ -24,6 +26,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _urlController = TextEditingController(
       text: ref.read(settingsControllerProvider).webhookUrl ?? '',
     );
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      // buildNumber reflects the CI --build-number for store builds (pubspec's
+      // +N only for local dev builds).
+      setState(
+        () => _version = 'Version ${info.version} (build ${info.buildNumber})',
+      );
+    } catch (_) {
+      // Version is informational; ignore if the plugin is unavailable.
+    }
   }
 
   @override
@@ -147,6 +164,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             icon: const Icon(Icons.battery_saver),
             label: const Text('Disable battery optimization'),
           ),
+          if (_version != null) ...[
+            const Divider(height: 32),
+            Center(
+              child: Text(
+                _version!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
