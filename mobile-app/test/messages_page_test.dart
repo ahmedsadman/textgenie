@@ -47,15 +47,23 @@ SmsRecord _rec({
 );
 
 void main() {
-  testWidgets('shows webhook banner when no URL configured', (tester) async {
+  testWidgets('shows the connect prompt when no URL configured', (
+    tester,
+  ) async {
     await _pumpHome(
       tester,
       settings: const SettingsState(webhookUrl: null, resolveContacts: true),
+      queued: [_rec()],
     );
-    expect(find.textContaining('No webhook URL configured'), findsOneWidget);
+    expect(find.text('Connect to send messages'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Open Settings'), findsOneWidget);
+    // Lists are hidden behind the prompt.
+    expect(find.text('Queued'), findsNothing);
   });
 
-  testWidgets('hides banner when URL configured', (tester) async {
+  testWidgets('shows the lists (no prompt) when URL configured', (
+    tester,
+  ) async {
     await _pumpHome(
       tester,
       settings: const SettingsState(
@@ -63,7 +71,8 @@ void main() {
         resolveContacts: true,
       ),
     );
-    expect(find.textContaining('No webhook URL configured'), findsNothing);
+    expect(find.text('Connect to send messages'), findsNothing);
+    expect(find.text('Queued'), findsWidgets);
   });
 
   testWidgets('renders queued messages with contact name and status', (
