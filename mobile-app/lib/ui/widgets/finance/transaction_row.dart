@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/finance/transaction.dart';
 import '../../../state/finance_providers.dart';
 import '../../../utils/time_format.dart';
+import '../skeleton.dart';
 import 'amount_text.dart';
 import 'finance_badge.dart';
 import 'finance_placeholders.dart';
@@ -52,7 +53,6 @@ class TransactionRow extends StatelessWidget {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (tx.bankName != null) FinanceBadge(tx.bankName!),
                           if (tx.isCreditCard) const FinanceBadge('Credit'),
                           if (tx.pairedWithId != null)
                             Icon(
@@ -133,7 +133,7 @@ class _Message extends ConsumerWidget {
     final theme = Theme.of(context);
     final async = ref.watch(messageProvider(id));
     return async.when(
-      loading: () => const FinanceLoading(height: 32),
+      loading: () => const MessageLinesSkeleton(),
       error: (_, _) => FinanceError(
         'Could not load the message.',
         onRetry: () => ref.invalidate(messageProvider(id)),

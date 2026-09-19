@@ -5,10 +5,12 @@ import '../../../models/finance/transaction.dart';
 import '../../../models/finance/transactions_page.dart';
 import '../../../models/finance/tx_query.dart';
 import '../../../state/finance_providers.dart';
+import '../../../state/providers.dart';
 import '../../../theme/catppuccin_theme.dart';
 import '../../../utils/currency_format.dart';
 import '../../../utils/date_range.dart';
 import '../section_header.dart';
+import '../skeleton.dart';
 import 'date_range_selector.dart';
 import 'finance_placeholders.dart';
 import 'transaction_row.dart';
@@ -35,11 +37,32 @@ class TransactionsSection extends ConsumerStatefulWidget {
 }
 
 class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
-  DateRangePreset _preset = _defaultPreset;
-  List<TxType> _types = const [];
-  String _sortKey = _defaultSort;
+  late DateRangePreset _preset;
+  late List<TxType> _types;
+  late String _sortKey;
   int _page = 1;
   int? _expandedId;
+  // Rows in the last loaded page, so the loading skeleton matches the count and
+  // the list doesn't jump when paging. Starts at a full page.
+  int _lastCount = _pageSize;
+
+  @override
+  void initState() {
+    super.initState();
+    // Restore the last-used filters (defaults on first run).
+    final repo = ref.read(settingsRepositoryProvider);
+    _preset = DateRangePreset.fromKey(repo.txRange, fallback: _defaultPreset);
+    _types = repo.txTypes.map(TxType.fromValue).toList();
+    final sort = repo.txSort;
+    _sortKey = _sortOptions.containsKey(sort) ? sort! : _defaultSort;
+  }
+
+  void _persistFilters() {
+    final repo = ref.read(settingsRepositoryProvider);
+    repo.setTxRange(_preset.key);
+    repo.setTxTypes(_types.map((t) => t.value).toList());
+    repo.setTxSort(_sortKey);
+  }
 
   bool get _isDefault =>
       _preset == _defaultPreset && _types.isEmpty && _sortKey == _defaultSort;
@@ -64,6 +87,7 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
       _page = 1;
       _expandedId = null;
     });
+    _persistFilters();
   }
 
   @override
@@ -124,9 +148,14 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
         ),
         const SizedBox(height: 12),
         async.when(
-          loading: () => const FinanceLoading(height: 120),
+          loading: () => TransactionRowsSkeleton(count: _lastCount),
           error: (_, _) => const FinanceError('Could not load transactions.'),
-          data: (result) => _content(result.data, currency),
+          data: (result) {
+            _lastCount = result.data.transactions.isEmpty
+                ? _pageSize
+                : result.data.transactions.length;
+            return _content(result.data, currency);
+          },
         ),
       ],
     );
