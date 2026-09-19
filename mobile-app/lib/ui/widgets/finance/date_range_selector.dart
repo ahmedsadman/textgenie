@@ -18,21 +18,25 @@ class DateRangeSelector extends StatelessWidget {
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final preset in DateRangePreset.values)
-              ListTile(
-                title: Text(preset.label),
-                trailing: preset == value
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => Navigator.of(context).pop(preset),
-              ),
-          ],
+        // Scrollable so the full preset list (and the last item) is reachable
+        // on short sheets instead of overflowing.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final preset in DateRangePreset.values)
+                ListTile(
+                  title: Text(preset.label),
+                  trailing: preset == value
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : null,
+                  onTap: () => Navigator.of(context).pop(preset),
+                ),
+            ],
+          ),
         ),
       ),
     );

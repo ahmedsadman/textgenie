@@ -6,6 +6,7 @@ enum DateRangePreset {
   lastMonth('last_month', 'Last month'),
   last3Months('last_3_months', 'Last 3 months'),
   lastYear('last_year', 'Last year'),
+  thisYear('this_year', 'This Year'),
   allTime('all_time', 'All time');
 
   const DateRangePreset(this.key, this.label);
@@ -63,5 +64,7 @@ DateRange resolveDateRange(DateRangePreset preset, {DateTime? now}) {
       return _fromDays(n, 90);
     case DateRangePreset.lastYear:
       return _fromDays(n, 365);
+    case DateRangePreset.thisYear:
+      return DateRange(from: DateTime(n.year), to: _endOfDay(n));
   }
 }

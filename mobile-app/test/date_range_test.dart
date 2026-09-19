@@ -29,6 +29,12 @@ void main() {
     expect(range.to, DateTime(2025, 6, 15, 23, 59, 59, 999));
   });
 
+  test('this year starts at the first day of the current year', () {
+    final range = resolveDateRange(DateRangePreset.thisYear, now: now);
+    expect(range.from, DateTime(2025, 1, 1));
+    expect(range.to, DateTime(2025, 6, 15, 23, 59, 59, 999));
+  });
+
   test('fromKey maps known keys and falls back otherwise', () {
     expect(DateRangePreset.fromKey('last_year'), DateRangePreset.lastYear);
     expect(DateRangePreset.fromKey(null), DateRangePreset.thisMonth);
