@@ -104,3 +104,18 @@ class SettingsController extends Notifier<SettingsState> {
 
 final settingsControllerProvider =
     NotifierProvider<SettingsController, SettingsState>(SettingsController.new);
+
+/// Index of the Settings tab in the bottom navigation (Finance, Messages,
+/// Settings). Used by pages that deep-link to Settings.
+const int kSettingsTabIndex = 2;
+
+/// The selected bottom-nav tab. Held in a provider (not local shell state) so
+/// any page can switch tabs — e.g. a "connect" prompt jumping to Settings.
+class SelectedTab extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
+
+final selectedTabProvider = NotifierProvider<SelectedTab, int>(SelectedTab.new);

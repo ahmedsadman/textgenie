@@ -42,8 +42,6 @@ class RootShell extends ConsumerStatefulWidget {
 
 class _RootShellState extends ConsumerState<RootShell>
     with WidgetsBindingObserver {
-  int _index = 0;
-
   static const _defaultPages = [FinancePage(), MessagesPage(), SettingsPage()];
 
   List<Widget> get _pages => widget.pages ?? _defaultPages;
@@ -77,11 +75,13 @@ class _RootShellState extends ConsumerState<RootShell>
 
   @override
   Widget build(BuildContext context) {
+    final index = ref.watch(selectedTabProvider);
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: IndexedStack(index: index, children: _pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: index,
+        onDestinationSelected: (i) =>
+            ref.read(selectedTabProvider.notifier).select(i),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
