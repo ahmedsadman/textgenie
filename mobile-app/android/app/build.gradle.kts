@@ -37,6 +37,9 @@ android {
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Default launcher name for all build types (release/profile); the debug
+        // build overrides it below. Referenced by the manifest as @string/app_name.
+        resValue("string", "app_name", "TextGenie")
     }
 
     signingConfigs {
@@ -59,6 +62,12 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+        }
+        debug {
+            // Install alongside the release app as a separate, isolated package
+            // (own data/PIN/cache) so debugging never touches the real install.
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "TextGenie Debug")
         }
     }
 }
