@@ -7,39 +7,6 @@ import '../../../state/providers.dart';
 import '../../../utils/currency_format.dart';
 import 'bank_breakdown_list.dart';
 
-/// A single averages stat: an uppercase caption above a value. The value is
-/// deliberately smaller than the total balance so the balance stays dominant.
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.outline,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// Total deposit balance across accounts. Tapping toggles a per-bank breakdown
 /// (hidden by default).
 class TotalBalanceCard extends ConsumerStatefulWidget {
@@ -61,7 +28,6 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
     final theme = Theme.of(context);
     final banks = ref.watch(banksProvider).value?.data;
     final currency = ref.watch(currencyProvider).value?.data ?? '';
-    final averages = ref.watch(averagesProvider).value?.data;
     final hidden = ref.watch(balanceHiddenProvider);
 
     final hasBanks = banks != null && banks.isNotEmpty;
@@ -117,24 +83,6 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
                   currency: currency,
                   hidden: hidden,
                 ),
-              const Divider(height: 24),
-              _Stat(
-                label: 'Avg Spend/Month',
-                value: averages == null
-                    ? '—'
-                    : formatAmount(averages.avgSpend, currency, hidden: hidden),
-              ),
-              const SizedBox(height: 12),
-              _Stat(
-                label: 'Avg Saving/Month',
-                value: averages == null
-                    ? '—'
-                    : formatAmount(
-                        averages.avgSaving,
-                        currency,
-                        hidden: hidden,
-                      ),
-              ),
             ],
           ),
         ),

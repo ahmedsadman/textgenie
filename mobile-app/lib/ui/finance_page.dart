@@ -9,6 +9,7 @@ import 'widgets/finance/credit_card_bills_section.dart';
 import 'widgets/finance/summary_graph_card.dart';
 import 'widgets/finance/total_balance_card.dart';
 import 'widgets/finance/transactions_section.dart';
+import 'widgets/finance/trends_card.dart';
 
 /// The Finance tab: balances, credit-card bills, stats, summary graph and
 /// transactions. Read-only, offline-aware (serves cached data with a stale
@@ -104,6 +105,8 @@ class _FinancePageState extends ConsumerState<FinancePage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TotalBalanceCard(),
+                    SizedBox(height: 8),
+                    TrendsCard(),
                     SizedBox(height: 8),
                     CreditCardBillsSection(),
                     SizedBox(height: 8),

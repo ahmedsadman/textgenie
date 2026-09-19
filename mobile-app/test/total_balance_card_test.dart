@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:textgenie/data/finance_repository.dart';
-import 'package:textgenie/models/finance/averages.dart';
 import 'package:textgenie/models/finance/bank.dart';
 import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
@@ -41,12 +40,6 @@ Future<void> _pump(
         ),
         currencyProvider.overrideWith(
           (ref) async => const CachedResult(data: 'BDT', stale: false),
-        ),
-        averagesProvider.overrideWith(
-          (ref) async => CachedResult(
-            data: const Averages(avgSpend: '10', avgSaving: '5'),
-            stale: false,
-          ),
         ),
       ],
       child: MaterialApp(
@@ -95,13 +88,11 @@ void main() {
     expect(find.text('—'), findsOneWidget);
   });
 
-  testWidgets('masks the total and averages when balances are hidden', (
-    tester,
-  ) async {
+  testWidgets('masks the total when balances are hidden', (tester) async {
     await _pump(tester, [_deposit('Checking', '1000.00')], hidden: true);
 
     expect(find.text('1,000.00 BDT'), findsNothing);
-    // Total balance + Avg Spend + Avg Saving are all masked (currency kept).
-    expect(find.text('**** BDT'), findsNWidgets(3));
+    // The total balance is masked (currency kept). Trends moved to their own card.
+    expect(find.text('**** BDT'), findsOneWidget);
   });
 }
