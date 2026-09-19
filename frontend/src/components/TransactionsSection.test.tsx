@@ -597,13 +597,13 @@ describe("TransactionsSection", () => {
     renderWithQueryClient(<TransactionsSection />);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Amex Card/).length).toBeGreaterThan(0);
+      expect(screen.getByText("AMEX")).toBeInTheDocument();
     });
-    // Only the credit row shows the desktop badge.
+    // Only the credit row shows the Credit indicator.
     const badges = screen.getAllByText("Credit");
     expect(badges).toHaveLength(1);
-    // The deposit row's bank name is present without any Credit indicator.
-    expect(screen.getAllByText(/BRAC Bank/).length).toBeGreaterThan(0);
+    // The deposit row is present without any Credit indicator.
+    expect(screen.getByText("BRAC")).toBeInTheDocument();
   });
 
   it("renders each row with its own currency label", async () => {
@@ -900,7 +900,7 @@ describe("TransactionsSection", () => {
     expect(dateElements).toHaveLength(1);
   });
 
-  it("keeps bank name and type dropdown in expanded detail", async () => {
+  it("keeps the type dropdown in expanded detail", async () => {
     renderWithQueryClient(<TransactionsSection />);
 
     const row = await screen.findByRole("button", {
