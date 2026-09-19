@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import '../models/finance/averages.dart';
 import '../models/finance/bank.dart';
 import '../models/finance/bills_page.dart';
 import '../models/finance/sms_message.dart';
 import '../models/finance/summary.dart';
+import '../models/finance/trends.dart';
 import '../models/finance/transactions_page.dart';
 import '../models/finance/tx_query.dart';
 import '../services/api_client.dart';
@@ -92,10 +92,10 @@ class FinanceRepository {
     (json) => (json as Map)['currency'] as String,
   );
 
-  Future<CachedResult<Averages>> averages() => _fetch(
-    '/transactions/averages',
+  Future<CachedResult<Trends>> trends() => _fetch(
+    '/transactions/trends',
     null,
-    (json) => Averages.fromJson(json as Map<String, dynamic>),
+    (json) => Trends.fromJson(json as Map<String, dynamic>),
   );
 
   Future<CachedResult<Summary>> summary(DateRange range) {

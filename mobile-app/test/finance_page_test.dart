@@ -4,10 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgenie/data/finance_repository.dart';
 import 'package:textgenie/data/settings_repository.dart';
-import 'package:textgenie/models/finance/averages.dart';
 import 'package:textgenie/models/finance/bank.dart';
 import 'package:textgenie/models/finance/summary.dart';
 import 'package:textgenie/models/finance/transactions_page.dart';
+import 'package:textgenie/models/finance/trends.dart';
 import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
@@ -39,6 +39,32 @@ TransactionsPage _emptyTx() => const TransactionsPage(
   totals: Totals(income: '0', expense: '0'),
 );
 
+Trends _trends() => Trends(
+  windowMonths: 3,
+  sparkMonths: [for (var m = 3; m <= 8; m++) DateTime(2025, m, 1)],
+  income: const TrendMetric(
+    recentAvg: '100.00',
+    priorAvg: '80.00',
+    changePct: '25.0',
+    direction: TrendDirection.up,
+    spark: ['80', '80', '80', '100', '100', '100'],
+  ),
+  spend: const TrendMetric(
+    recentAvg: '50.00',
+    priorAvg: '50.00',
+    changePct: '0.0',
+    direction: TrendDirection.flat,
+    spark: ['50', '50', '50', '50', '50', '50'],
+  ),
+  savingsRate: const SavingsRateTrend(
+    recent: '0.5',
+    prior: '0.4',
+    changePp: '10.0',
+    direction: TrendDirection.up,
+    spark: ['0.4', '0.4', '0.4', '0.5', '0.5', '0.5'],
+  ),
+);
+
 Future<void> _pump(
   WidgetTester tester, {
   String? webhookUrl = 'https://host/api/webhook/tok',
@@ -67,11 +93,8 @@ Future<void> _pump(
         currencyProvider.overrideWith(
           (ref) async => CachedResult(data: 'BDT', stale: stale),
         ),
-        averagesProvider.overrideWith(
-          (ref) async => CachedResult(
-            data: const Averages(avgSpend: '10', avgSaving: '5'),
-            stale: stale,
-          ),
+        trendsProvider.overrideWith(
+          (ref) async => CachedResult(data: _trends(), stale: stale),
         ),
         summaryProvider.overrideWith(
           (ref, arg) async => CachedResult(
@@ -98,9 +121,10 @@ void main() {
     expect(find.byType(SummaryGraphCard), findsOneWidget);
     expect(find.byType(TransactionsSection), findsOneWidget);
 
-    // Averages are folded into the balance card (no separate StatsCard).
-    expect(find.text('AVG SPEND/MONTH'), findsOneWidget);
-    expect(find.text('AVG SAVING/MONTH'), findsOneWidget);
+    // Trend metrics render in their own Trends card.
+    expect(find.text('Income / Month'), findsOneWidget);
+    expect(find.text('Spend / Month'), findsOneWidget);
+    expect(find.text('Savings Rate'), findsOneWidget);
 
     final totalY = tester.getTopLeft(find.byType(TotalBalanceCard)).dy;
     final summaryY = tester.getTopLeft(find.byType(SummaryGraphCard)).dy;

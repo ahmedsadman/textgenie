@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:textgenie/models/finance/averages.dart';
 import 'package:textgenie/models/finance/bank.dart';
 import 'package:textgenie/models/finance/bill.dart';
 import 'package:textgenie/models/finance/sms_message.dart';
 import 'package:textgenie/models/finance/summary.dart';
 import 'package:textgenie/models/finance/transaction.dart';
 import 'package:textgenie/models/finance/transactions_page.dart';
+import 'package:textgenie/models/finance/trends.dart';
 
 void main() {
   test('Bank parses a deposit account', () {
@@ -122,13 +122,42 @@ void main() {
     expect(summary.series.single.expenseValue, 30.0);
   });
 
-  test('Averages parses fields', () {
-    final avg = Averages.fromJson({
-      'avg_spend': '30.00',
-      'avg_saving': '70.00',
+  test('Trends parses metrics, direction and nullable rate fields', () {
+    final trends = Trends.fromJson({
+      'window_months': 3,
+      'spark_months': ['2025-03-01', '2025-04-01'],
+      'income': {
+        'recent_avg': '5000.00',
+        'prior_avg': '4000.00',
+        'change_pct': '25.0',
+        'direction': 'up',
+        'spark': ['4000.00', '5000.00'],
+      },
+      'spend': {
+        'recent_avg': '1000.00',
+        'prior_avg': '1000.00',
+        'change_pct': null,
+        'direction': 'new',
+        'spark': ['1000.00', '1000.00'],
+      },
+      'savings_rate': {
+        'recent': '0.3000',
+        'prior': null,
+        'change_pp': null,
+        'direction': 'new',
+        'spark': ['0.2000', null],
+      },
     });
-    expect(avg.avgSpend, '30.00');
-    expect(avg.avgSaving, '70.00');
+
+    expect(trends.windowMonths, 3);
+    expect(trends.sparkMonths.first, DateTime(2025, 3, 1));
+    expect(trends.income.recentAvg, '5000.00');
+    expect(trends.income.direction, TrendDirection.up);
+    expect(trends.spend.changePct, isNull);
+    expect(trends.spend.direction, TrendDirection.isNew);
+    expect(trends.savingsRate.recent, '0.3000');
+    expect(trends.savingsRate.prior, isNull);
+    expect(trends.savingsRate.spark, ['0.2000', null]);
   });
 
   test('ApiMessage parses fields', () {

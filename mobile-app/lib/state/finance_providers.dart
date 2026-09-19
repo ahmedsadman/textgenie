@@ -2,11 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/finance_cache.dart';
 import '../data/finance_repository.dart';
-import '../models/finance/averages.dart';
 import '../models/finance/bank.dart';
 import '../models/finance/bills_page.dart';
 import '../models/finance/sms_message.dart';
 import '../models/finance/summary.dart';
+import '../models/finance/trends.dart';
 import '../models/finance/transactions_page.dart';
 import '../models/finance/tx_query.dart';
 import '../services/api_client.dart';
@@ -42,8 +42,8 @@ final currencyProvider = FutureProvider.autoDispose<CachedResult<String>>(
   (ref) => ref.watch(financeRepositoryProvider).currency(),
 );
 
-final averagesProvider = FutureProvider.autoDispose<CachedResult<Averages>>(
-  (ref) => ref.watch(financeRepositoryProvider).averages(),
+final trendsProvider = FutureProvider.autoDispose<CachedResult<Trends>>(
+  (ref) => ref.watch(financeRepositoryProvider).trends(),
 );
 
 final summaryProvider = FutureProvider.autoDispose
@@ -72,7 +72,7 @@ final messageProvider = FutureProvider.autoDispose
 void refreshAllFinance(WidgetRef ref) {
   ref.invalidate(banksProvider);
   ref.invalidate(currencyProvider);
-  ref.invalidate(averagesProvider);
+  ref.invalidate(trendsProvider);
   ref.invalidate(summaryProvider);
   ref.invalidate(transactionsProvider);
   ref.invalidate(billsProvider);
