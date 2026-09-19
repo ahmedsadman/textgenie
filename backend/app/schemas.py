@@ -195,9 +195,31 @@ class TransactionTotals(BaseModel):
     expense: Decimal
 
 
-class TransactionAveragesResponse(BaseModel):
-    avg_spend: Decimal
-    avg_saving: Decimal
+TrendDirection = Literal["up", "down", "flat", "new"]
+
+
+class TrendMetric(BaseModel):
+    recent_avg: Decimal
+    prior_avg: Decimal
+    change_pct: Decimal | None
+    direction: TrendDirection
+    spark: list[Decimal]  # SPARK_MONTHS values, oldest first
+
+
+class SavingsRateTrend(BaseModel):
+    recent: Decimal | None  # fraction 0..1
+    prior: Decimal | None
+    change_pp: Decimal | None
+    direction: TrendDirection
+    spark: list[Decimal | None]  # monthly rates, None on zero-income month
+
+
+class TransactionTrendsResponse(BaseModel):
+    window_months: int
+    spark_months: list[date]  # month_starts for tooltip labels
+    income: TrendMetric
+    spend: TrendMetric
+    savings_rate: SavingsRateTrend
 
 
 class PaginatedTransactionsResponse(BaseModel):
