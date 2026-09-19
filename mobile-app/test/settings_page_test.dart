@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgenie/data/settings_repository.dart';
 import 'package:textgenie/state/providers.dart';
@@ -22,6 +23,13 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'TextGenie',
+      packageName: 'com.example.textgenie',
+      version: '1.1.0',
+      buildNumber: '123',
+      buildSignature: '',
+    );
     repo = SettingsRepository(await SharedPreferences.getInstance());
   });
 
@@ -61,5 +69,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.resolveContacts, isFalse);
+  });
+
+  testWidgets('shows the app version with build number', (tester) async {
+    await _pumpSettings(tester, repo);
+    expect(find.text('Version 1.1.0 (build 123)'), findsOneWidget);
   });
 }
