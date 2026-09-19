@@ -18,7 +18,7 @@ export const transactionKeys = {
     [...transactionKeys.all, "list", params] as const,
   summary: (params: TransactionSummaryQuery) =>
     [...transactionKeys.all, "summary", params] as const,
-  averages: () => [...transactionKeys.all, "averages"] as const,
+  trends: () => [...transactionKeys.all, "trends"] as const,
 };
 
 export const billKeys = {

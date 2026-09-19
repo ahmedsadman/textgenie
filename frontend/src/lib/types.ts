@@ -151,7 +151,28 @@ export interface TransactionSummary {
   series: MonthlySummaryBucket[];
 }
 
-export interface TransactionAverages {
-  avg_spend: string;
-  avg_saving: string;
+export type TrendDirection = "up" | "down" | "flat" | "new";
+
+export interface TrendMetric {
+  recent_avg: string;
+  prior_avg: string;
+  change_pct: string | null;
+  direction: TrendDirection;
+  spark: string[]; // oldest -> newest
+}
+
+export interface SavingsRateTrend {
+  recent: string | null; // fraction 0..1
+  prior: string | null;
+  change_pp: string | null;
+  direction: TrendDirection;
+  spark: (string | null)[]; // null on zero-income months
+}
+
+export interface TransactionTrends {
+  window_months: number;
+  spark_months: string[]; // YYYY-MM-DD, oldest -> newest
+  income: TrendMetric;
+  spend: TrendMetric;
+  savings_rate: SavingsRateTrend;
 }

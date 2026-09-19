@@ -23,10 +23,10 @@ export function useTransactionSummary(params: TransactionSummaryQuery) {
   });
 }
 
-export function useTransactionAverages() {
+export function useTransactionTrends() {
   return useQuery({
-    queryKey: transactionKeys.averages(),
-    queryFn: () => api.getTransactionAverages(),
+    queryKey: transactionKeys.trends(),
+    queryFn: () => api.getTransactionTrends(),
   });
 }
 

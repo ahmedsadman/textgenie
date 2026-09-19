@@ -24,11 +24,11 @@ import {
 } from "@/components/ui/card";
 import BankFormDialog from "@/components/BankFormDialog";
 import BillsSection from "@/components/BillsSection";
+import TrendsSection from "@/components/finance/TrendsSection";
 import SummaryGraphSection from "@/components/SummaryGraphSection";
 import TransactionsSection from "@/components/TransactionsSection";
 import { useBanks, useDeleteBank } from "@/hooks/queries/useBanks";
 import { useCurrency } from "@/hooks/queries/useCurrency";
-import { useTransactionAverages } from "@/hooks/queries/useTransactions";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { formatAmount } from "@/lib/currency";
 import type { Bank, Currency } from "@/lib/types";
@@ -71,8 +71,6 @@ function creditCardLast4(cardDigits: string | null): string | null {
 export default function FinancePage() {
   const { data: banks, isPending } = useBanks();
   const { data: currencySettings } = useCurrency();
-  const { data: averages, isPending: averagesPending } =
-    useTransactionAverages();
   const deleteBank = useDeleteBank();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Bank | null>(null);
@@ -244,35 +242,7 @@ export default function FinancePage() {
 
       <BillsSection banks={banks} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">Stats</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-x-12 gap-y-4">
-            <div>
-              <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Avg Spend/Month
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">
-                {averagesPending || !averages
-                  ? "—"
-                  : formatAmount(averages.avg_spend, currency)}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Avg Saving/Month
-              </div>
-              <div className="mt-1 text-xl font-semibold tabular-nums sm:text-2xl">
-                {averagesPending || !averages
-                  ? "—"
-                  : formatAmount(averages.avg_saving, currency)}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <TrendsSection />
 
       <SummaryGraphSection />
 
