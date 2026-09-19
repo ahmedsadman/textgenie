@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/sms_record.dart';
 import '../state/providers.dart';
+import 'widgets/connect_prompt.dart';
 import 'widgets/section_header.dart';
+import 'widgets/skeleton.dart';
 import 'widgets/sms_tile.dart';
-import 'widgets/webhook_banner.dart';
 
 /// Messages tab: the webhook banner (when unset), Queued and History sections.
 class MessagesPage extends ConsumerWidget {
@@ -14,6 +15,22 @@ class MessagesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsControllerProvider);
+
+    // Without a webhook, messages can't be sent — mirror the Finance tab's
+    // centered connect prompt (with a shortcut to Settings) instead of the
+    // Queued/History lists.
+    if (!settings.hasWebhookUrl) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Messages')),
+        body: const ConnectPrompt(
+          icon: Icons.sms_outlined,
+          title: 'Connect to send messages',
+          message:
+              'Add your webhook URL in Settings to send captured messages.',
+        ),
+      );
+    }
+
     final queued = ref.watch(queuedProvider);
     final history = ref.watch(historyProvider);
     final failedCount = ref.watch(failedCountProvider).value ?? 0;
@@ -39,7 +56,6 @@ class MessagesPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            if (!settings.hasWebhookUrl) const WebhookBanner(),
             _Section(
               title: 'Queued',
               async: queued,
@@ -113,10 +129,7 @@ class _Section extends StatelessWidget {
           action: action,
         ),
         if (async.isLoading && async.value == null)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const SmsTilesSkeleton()
         else if (records.isEmpty)
           EmptyHint(emptyMessage)
         else ...[
