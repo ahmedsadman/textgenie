@@ -16,8 +16,8 @@ import type {
   PaginatedMessages,
   PaginatedTransactions,
   Transaction,
-  TransactionAverages,
   TransactionSummary,
+  TransactionTrends,
   TransactionType,
   User,
   WebhookSettings,
@@ -202,10 +202,8 @@ export const api = {
       .get<TransactionSummary>("/transactions/summary", { params })
       .then((r) => r.data),
 
-  getTransactionAverages: () =>
-    client
-      .get<TransactionAverages>("/transactions/averages")
-      .then((r) => r.data),
+  getTransactionTrends: () =>
+    client.get<TransactionTrends>("/transactions/trends").then((r) => r.data),
 
   updateTransaction: (id: number, type: TransactionType) =>
     client

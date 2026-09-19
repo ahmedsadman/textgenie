@@ -13,8 +13,32 @@ export const handlers: RequestHandler[] = [
   http.get("/api/transactions/summary", () =>
     HttpResponse.json({ series: [] }),
   ),
-  http.get("/api/transactions/averages", () =>
-    HttpResponse.json({ avg_spend: "0.00", avg_saving: "0.00" }),
+  http.get("/api/transactions/trends", () =>
+    HttpResponse.json({
+      window_months: 3,
+      spark_months: [],
+      income: {
+        recent_avg: "0.00",
+        prior_avg: "0.00",
+        change_pct: null,
+        direction: "new",
+        spark: [],
+      },
+      spend: {
+        recent_avg: "0.00",
+        prior_avg: "0.00",
+        change_pct: null,
+        direction: "new",
+        spark: [],
+      },
+      savings_rate: {
+        recent: null,
+        prior: null,
+        change_pp: null,
+        direction: "new",
+        spark: [],
+      },
+    }),
   ),
   http.post("/api/auth/extend", () =>
     HttpResponse.json({ message: "Session extended" }),

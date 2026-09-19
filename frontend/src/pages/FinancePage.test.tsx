@@ -79,38 +79,110 @@ describe("FinancePage", () => {
     await waitFor(() => {
       expect(screen.getByText(/no banks yet/i)).toBeInTheDocument();
     });
-    expect(screen.getByText("—")).toBeInTheDocument();
+    // The total balance renders a dash when there are no banks (the savings
+    // rate also dashes under the default "new" trends, hence getAllByText).
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
-  it("shows monthly average spend and saving figures", async () => {
+  const trendsUp = {
+    window_months: 3,
+    spark_months: [
+      "2026-03-01",
+      "2026-04-01",
+      "2026-05-01",
+      "2026-06-01",
+      "2026-07-01",
+      "2026-08-01",
+    ],
+    income: {
+      recent_avg: "5000.00",
+      prior_avg: "4000.00",
+      change_pct: "25.0",
+      direction: "up",
+      spark: ["4000.00", "4000.00", "4000.00", "5000.00", "5000.00", "5000.00"],
+    },
+    spend: {
+      recent_avg: "1200.00",
+      prior_avg: "1000.00",
+      change_pct: "20.0",
+      direction: "up",
+      spark: ["1000.00", "1000.00", "1000.00", "1200.00", "1200.00", "1200.00"],
+    },
+    savings_rate: {
+      recent: "0.3000",
+      prior: "0.2000",
+      change_pp: "10.0",
+      direction: "up",
+      spark: ["0.2000", "0.2000", "0.2000", "0.3000", "0.3000", "0.3000"],
+    },
+  };
+
+  it("shows the three trend metrics with headline figures and window caption", async () => {
     server.use(
-      http.get("/api/transactions/averages", () =>
-        HttpResponse.json({ avg_spend: "1234.56", avg_saving: "789.10" }),
-      ),
+      http.get("/api/transactions/trends", () => HttpResponse.json(trendsUp)),
     );
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Avg Spend/Month")).toBeInTheDocument();
+      expect(screen.getByText("Income / Month")).toBeInTheDocument();
     });
-    expect(screen.getByText("Avg Saving/Month")).toBeInTheDocument();
-    expect(screen.getByText("1,234.56 BDT")).toBeInTheDocument();
-    expect(screen.getByText("789.10 BDT")).toBeInTheDocument();
+    expect(screen.getByText("Spend / Month")).toBeInTheDocument();
+    expect(screen.getByText("Savings Rate")).toBeInTheDocument();
+    expect(
+      screen.getByText("Last 3 months · vs previous 3 months"),
+    ).toBeInTheDocument();
+
+    // Headlines: last-3-month averages, and the savings rate as a percent.
+    expect(screen.getByText("5,000.00 BDT")).toBeInTheDocument();
+    expect(screen.getByText("1,200.00 BDT")).toBeInTheDocument();
+    expect(screen.getByText("30%")).toBeInTheDocument();
   });
 
-  it("shows a negative monthly saving average", async () => {
+  it("colors trend badges by meaning (income up green, spend up red)", async () => {
     server.use(
-      http.get("/api/transactions/averages", () =>
-        HttpResponse.json({ avg_spend: "500.00", avg_saving: "-120.00" }),
-      ),
+      http.get("/api/transactions/trends", () => HttpResponse.json(trendsUp)),
     );
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("-120.00 BDT")).toBeInTheDocument();
+      expect(screen.getByText("25.0%")).toBeInTheDocument();
     });
+    // Income rising is healthy -> green; spending rising is not -> red.
+    expect(screen.getByText("25.0%")).toHaveClass("text-emerald-600");
+    expect(screen.getByText("20.0%")).toHaveClass("text-red-600");
+    // Savings rate improvement uses percentage points.
+    expect(screen.getByText("10.0pp")).toHaveClass("text-emerald-600");
+  });
+
+  it("reveals recent vs prior figures in the badge tooltip on hover", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("/api/transactions/trends", () => HttpResponse.json(trendsUp)),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("25.0%")).toBeInTheDocument();
+    });
+
+    await user.hover(screen.getByText("25.0%"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Prior 3 mo: 4,000\.00 BDT/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows a New chip when there is not enough history", async () => {
+    renderPage();
+
+    // Default handler returns direction "new" for every metric.
+    await waitFor(() => {
+      expect(screen.getByText("Income / Month")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("New").length).toBe(3);
   });
 
   it("adds a new bank via the modal", async () => {
