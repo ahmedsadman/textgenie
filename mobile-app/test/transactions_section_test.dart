@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:textgenie/data/finance_repository.dart';
+import 'package:textgenie/data/settings_repository.dart';
 import 'package:textgenie/models/finance/sms_message.dart';
 import 'package:textgenie/models/finance/transaction.dart';
 import 'package:textgenie/models/finance/transactions_page.dart';
 import 'package:textgenie/state/finance_providers.dart';
+import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/widgets/finance/transactions_section.dart';
 
@@ -27,10 +30,16 @@ TransactionsPage _page(int page) => TransactionsPage(
   totals: const Totals(income: '900.00', expense: '300.00'),
 );
 
-Future<void> _pump(WidgetTester tester) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  Map<String, Object> prefsSeed = const {},
+}) async {
+  SharedPreferences.setMockInitialValues(prefsSeed);
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        settingsRepositoryProvider.overrideWithValue(SettingsRepository(prefs)),
         currencyProvider.overrideWith(
           (ref) async => const CachedResult(data: 'BDT', stale: false),
         ),
@@ -89,5 +98,22 @@ void main() {
     await tester.tap(find.byIcon(Icons.chevron_right));
     await tester.pumpAndSettle();
     expect(find.text('Page 2 of 3'), findsOneWidget);
+  });
+
+  testWidgets('restores persisted filters on load', (tester) async {
+    await _pump(
+      tester,
+      prefsSeed: const {
+        'tx_range': 'last_3_months',
+        'tx_sort': 'amount-desc',
+        'tx_types': 'income',
+      },
+    );
+
+    // The date-range selector and sort dropdown reflect the saved choices, and
+    // a non-default state exposes the Reset affordance.
+    expect(find.text('Last 3 months'), findsOneWidget);
+    expect(find.text('Highest amount'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
   });
 }
