@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/finance_providers.dart';
 import '../state/providers.dart';
 import '../utils/api_config.dart';
+import 'widgets/connect_prompt.dart';
 import 'widgets/finance/credit_card_bills_section.dart';
-import 'widgets/finance/stats_card.dart';
 import 'widgets/finance/summary_graph_card.dart';
 import 'widgets/finance/total_balance_card.dart';
 import 'widgets/finance/transactions_section.dart';
@@ -69,64 +69,39 @@ class _FinancePageState extends ConsumerState<FinancePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Finance')),
       body: config == null
-          ? const _ConnectPrompt()
+          ? const ConnectPrompt(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'Connect to view Finance',
+              message:
+                  'Add your webhook URL in Settings to load balances, bills '
+                  'and transactions on this device.',
+            )
           : RefreshIndicator(
               onRefresh: _refresh,
-              child: ListView(
+              // A non-lazy Column (not a ListView) keeps every top card mounted
+              // so their autoDispose providers stay subscribed. Otherwise
+              // scrolling a card off-screen disposes it and refetches on return
+              // (and paginating transactions, which pushes the cards off-screen,
+              // does the same). Content is bounded (10 tx/page) so eager build
+              // is fine. AlwaysScrollable keeps pull-to-refresh working when the
+              // content is short.
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(12),
-                children: const [
-                  TotalBalanceCard(),
-                  SizedBox(height: 8),
-                  CreditCardBillsSection(),
-                  SizedBox(height: 8),
-                  StatsCard(),
-                  SizedBox(height: 8),
-                  SummaryGraphCard(),
-                  SizedBox(height: 8),
-                  TransactionsSection(),
-                ],
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TotalBalanceCard(),
+                    SizedBox(height: 8),
+                    CreditCardBillsSection(),
+                    SizedBox(height: 8),
+                    SummaryGraphCard(),
+                    SizedBox(height: 8),
+                    TransactionsSection(),
+                  ],
+                ),
               ),
             ),
-    );
-  }
-}
-
-/// Shown when no webhook URL is configured (nothing to authenticate with).
-class _ConnectPrompt extends StatelessWidget {
-  const _ConnectPrompt();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.account_balance_wallet_outlined,
-              size: 48,
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Connect to view Finance',
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your webhook URL in Settings to load balances, bills and '
-              'transactions on this device.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
