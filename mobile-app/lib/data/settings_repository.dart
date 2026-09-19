@@ -8,6 +8,10 @@ class SettingsRepository {
 
   static const _kWebhookUrl = 'webhook_url';
   static const _kResolveContacts = 'resolve_contacts';
+  static const _kSummaryRange = 'summary_range';
+  static const _kTxRange = 'tx_range';
+  static const _kTxTypes = 'tx_types';
+  static const _kTxSort = 'tx_sort';
 
   /// Full webhook URL typed by the user, or null when unset.
   String? get webhookUrl {
@@ -25,4 +29,34 @@ class SettingsRepository {
 
   Future<void> setResolveContacts(bool value) =>
       _prefs.setBool(_kResolveContacts, value);
+
+  // Persisted finance filters, so the user's date ranges and transaction
+  // filters survive app restarts. Stored as raw preset/sort keys; callers map
+  // them back to enums. Null means "not set yet" (use the widget's default).
+
+  /// Preset key for the summary graph's date range.
+  String? get summaryRange => _prefs.getString(_kSummaryRange);
+
+  Future<void> setSummaryRange(String key) =>
+      _prefs.setString(_kSummaryRange, key);
+
+  /// Preset key for the transactions date range.
+  String? get txRange => _prefs.getString(_kTxRange);
+
+  Future<void> setTxRange(String key) => _prefs.setString(_kTxRange, key);
+
+  /// Selected transaction type filter values (empty means "all").
+  List<String> get txTypes {
+    final raw = _prefs.getString(_kTxTypes);
+    if (raw == null || raw.isEmpty) return const [];
+    return raw.split(',');
+  }
+
+  Future<void> setTxTypes(List<String> values) =>
+      _prefs.setString(_kTxTypes, values.join(','));
+
+  /// Sort key for the transactions list (e.g. `date-desc`).
+  String? get txSort => _prefs.getString(_kTxSort);
+
+  Future<void> setTxSort(String key) => _prefs.setString(_kTxSort, key);
 }
