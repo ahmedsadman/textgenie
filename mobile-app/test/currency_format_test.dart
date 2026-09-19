@@ -17,6 +17,29 @@ void main() {
       expect(formatAmount(null, 'BDT'), '—');
       expect(formatAmount('abc', 'BDT'), '—');
     });
+
+    test('masks the value but keeps the currency when hidden', () {
+      expect(formatAmount('1234.5', 'BDT', hidden: true), '**** BDT');
+      // Even unparseable/null input masks (never leaks the placeholder).
+      expect(formatAmount(null, 'USD', hidden: true), '**** USD');
+    });
+  });
+
+  group('formatMoney', () {
+    test('formats a numeric value with its currency', () {
+      expect(formatMoney(1234.5, 'BDT'), '1,234.50 BDT');
+    });
+
+    test('masks the value but keeps the currency when hidden', () {
+      expect(formatMoney(1234.5, 'BDT', hidden: true), '**** BDT');
+    });
+  });
+
+  group('maskAmount', () {
+    test('is the fixed four-star mask with the currency', () {
+      expect(maskAmount('BDT'), '**** BDT');
+      expect(maskedValue, '****');
+    });
   });
 
   group('formatNumber', () {

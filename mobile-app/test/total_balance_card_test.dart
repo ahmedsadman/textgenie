@@ -8,6 +8,8 @@ import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/widgets/finance/total_balance_card.dart';
 
+import 'support/balance_test_overrides.dart';
+
 Bank _deposit(String name, String? balance) => Bank(
   id: name.hashCode,
   name: name,
@@ -25,10 +27,15 @@ Bank _credit(String name) => Bank(
   createdAt: DateTime(2025, 1, 1),
 );
 
-Future<void> _pump(WidgetTester tester, List<Bank> banks) async {
+Future<void> _pump(
+  WidgetTester tester,
+  List<Bank> banks, {
+  bool hidden = false,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        overrideBalanceHidden(hidden),
         banksProvider.overrideWith(
           (ref) async => CachedResult(data: banks, stale: false),
         ),
@@ -86,5 +93,15 @@ void main() {
   testWidgets('shows a placeholder when there are no banks', (tester) async {
     await _pump(tester, const []);
     expect(find.text('—'), findsOneWidget);
+  });
+
+  testWidgets('masks the total and averages when balances are hidden', (
+    tester,
+  ) async {
+    await _pump(tester, [_deposit('Checking', '1000.00')], hidden: true);
+
+    expect(find.text('1,000.00 BDT'), findsNothing);
+    // Total balance + Avg Spend + Avg Saving are all masked (currency kept).
+    expect(find.text('**** BDT'), findsNWidgets(3));
   });
 }

@@ -23,7 +23,9 @@ class TransactionRow extends StatelessWidget {
   final TransactionItem tx;
   final String currency;
   final bool expanded;
-  final VoidCallback onTap;
+  // Null disables expansion (e.g. while balances are hidden, so the backing SMS
+  // — which usually contains the amount — can't be revealed).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

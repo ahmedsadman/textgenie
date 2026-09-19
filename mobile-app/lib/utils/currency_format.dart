@@ -2,6 +2,12 @@
 
 const String _placeholder = '—';
 
+/// Fixed mask shown in place of a numeric value when balances are hidden.
+const String maskedValue = '****';
+
+/// The masked form keeps the currency but replaces the amount: `**** BDT`.
+String maskAmount(String currency) => '$maskedValue $currency';
+
 /// Groups the integer part of a number with commas: `1234567` -> `1,234,567`.
 String _group(String integerPart) {
   final buffer = StringBuffer();
@@ -22,16 +28,20 @@ String formatNumber(double value) {
 }
 
 /// Formats a decimal-string amount with its currency: `1,234.56 BDT`.
-/// Returns `—` when [raw] is null or not parseable.
-String formatAmount(String? raw, String currency) {
+/// Returns `—` when [raw] is null or not parseable, or the mask (`**** BDT`)
+/// when [hidden].
+String formatAmount(String? raw, String currency, {bool hidden = false}) {
+  if (hidden) return maskAmount(currency);
   final value = double.tryParse(raw ?? '');
   if (value == null) return _placeholder;
   return '${formatNumber(value)} $currency';
 }
 
-/// Formats a numeric value with its currency: `1,234.56 BDT`.
-String formatMoney(num value, String currency) =>
-    '${formatNumber(value.toDouble())} $currency';
+/// Formats a numeric value with its currency: `1,234.56 BDT`, or the mask
+/// (`**** BDT`) when [hidden].
+String formatMoney(num value, String currency, {bool hidden = false}) => hidden
+    ? maskAmount(currency)
+    : '${formatNumber(value.toDouble())} $currency';
 
 /// Compact axis label: `1.2K`, `3.4M`, `2B`. Trims a trailing `.0`.
 String formatCompact(num value) {

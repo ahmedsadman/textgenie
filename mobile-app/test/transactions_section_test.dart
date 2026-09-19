@@ -91,6 +91,23 @@ void main() {
     expect(find.text('SMS body for 101'), findsOneWidget);
   });
 
+  testWidgets('masks amounts and blocks row expansion when hidden', (
+    tester,
+  ) async {
+    await _pump(tester, prefsSeed: const {'hide_balance': true});
+
+    // Totals and the row amount are masked (currency kept, sign dropped).
+    expect(find.text('900.00 BDT'), findsNothing);
+    expect(find.text('300.00 BDT'), findsNothing);
+    expect(find.text('−50.00 BDT'), findsNothing);
+    expect(find.text('**** BDT'), findsWidgets);
+
+    // Tapping a row must NOT reveal the backing SMS (it contains the amount).
+    await tester.tap(find.text('ACME-1'));
+    await tester.pumpAndSettle();
+    expect(find.text('SMS body for 101'), findsNothing);
+  });
+
   testWidgets('paginates when there is more than one page', (tester) async {
     await _pump(tester);
 

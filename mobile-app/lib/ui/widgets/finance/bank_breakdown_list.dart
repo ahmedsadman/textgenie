@@ -13,11 +13,13 @@ class BankBreakdownList extends StatelessWidget {
   const BankBreakdownList({
     required this.banks,
     required this.currency,
+    this.hidden = false,
     super.key,
   });
 
   final List<Bank> banks;
   final String currency;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -37,17 +39,23 @@ class BankBreakdownList extends StatelessWidget {
     return Column(
       children: [
         const Divider(height: 24),
-        for (final bank in banks) _BankRow(bank: bank, currency: currency),
+        for (final bank in banks)
+          _BankRow(bank: bank, currency: currency, hidden: hidden),
       ],
     );
   }
 }
 
 class _BankRow extends StatelessWidget {
-  const _BankRow({required this.bank, required this.currency});
+  const _BankRow({
+    required this.bank,
+    required this.currency,
+    required this.hidden,
+  });
 
   final Bank bank;
   final String currency;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +106,7 @@ class _BankRow extends StatelessWidget {
           if (bank.isDeposit)
             Text(
               bank.lastBalance != null
-                  ? formatAmount(bank.lastBalance, currency)
+                  ? formatAmount(bank.lastBalance, currency, hidden: hidden)
                   : 'No balance yet',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,

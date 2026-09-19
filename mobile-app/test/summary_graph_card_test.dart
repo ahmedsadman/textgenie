@@ -11,13 +11,20 @@ import 'package:textgenie/state/providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/widgets/finance/summary_graph_card.dart';
 
-Future<void> _pump(WidgetTester tester, Summary summary) async {
+import 'support/balance_test_overrides.dart';
+
+Future<void> _pump(
+  WidgetTester tester,
+  Summary summary, {
+  bool hidden = false,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(SettingsRepository(prefs)),
+        overrideBalanceHidden(hidden),
         summaryProvider.overrideWith(
           (ref, arg) async => CachedResult(data: summary, stale: false),
         ),
@@ -63,5 +70,30 @@ void main() {
 
     expect(find.byType(LineChart), findsNothing);
     expect(find.text('No transactions in selected range.'), findsOneWidget);
+  });
+
+  testWidgets('hides the chart and legend when balances are hidden', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      Summary(
+        series: [
+          SummaryBucket(
+            monthStart: DateTime(2025, 1, 1),
+            income: '100',
+            expense: '40',
+          ),
+        ],
+      ),
+      hidden: true,
+    );
+
+    // A decorative (data-less) chart skeleton renders behind the indicator.
+    expect(find.byType(LineChart), findsOneWidget);
+    expect(find.text('Amounts hidden'), findsOneWidget);
+    // Legend is dropped while hidden.
+    expect(find.text('Income'), findsNothing);
+    expect(find.text('Expense'), findsNothing);
   });
 }
