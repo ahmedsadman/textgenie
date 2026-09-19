@@ -12,6 +12,7 @@ class SettingsRepository {
   static const _kTxRange = 'tx_range';
   static const _kTxTypes = 'tx_types';
   static const _kTxSort = 'tx_sort';
+  static const _kHideBalance = 'hide_balance';
 
   /// Full webhook URL typed by the user, or null when unset.
   String? get webhookUrl {
@@ -59,4 +60,10 @@ class SettingsRepository {
   String? get txSort => _prefs.getString(_kTxSort);
 
   Future<void> setTxSort(String key) => _prefs.setString(_kTxSort, key);
+
+  /// Whether monetary values are masked across the Finance tab (default off).
+  bool get hideBalance => _prefs.getBool(_kHideBalance) ?? false;
+
+  Future<void> setHideBalance(bool value) =>
+      _prefs.setBool(_kHideBalance, value);
 }

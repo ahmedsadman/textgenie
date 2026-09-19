@@ -93,6 +93,7 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
   @override
   Widget build(BuildContext context) {
     final currency = ref.watch(currencyProvider).value?.data ?? '';
+    final hidden = ref.watch(balanceHiddenProvider);
     final async = ref.watch(transactionsProvider(_query));
 
     return Column(
@@ -154,14 +155,14 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
             _lastCount = result.data.transactions.isEmpty
                 ? _pageSize
                 : result.data.transactions.length;
-            return _content(result.data, currency);
+            return _content(result.data, currency, hidden);
           },
         ),
       ],
     );
   }
 
-  Widget _content(TransactionsPage page, String currency) {
+  Widget _content(TransactionsPage page, String currency, bool hidden) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -174,10 +175,14 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
             TransactionRow(
               tx: tx,
               currency: currency,
-              expanded: _expandedId == tx.id,
-              onTap: () => setState(
-                () => _expandedId = _expandedId == tx.id ? null : tx.id,
-              ),
+              // While hidden, keep rows collapsed and non-expandable so the raw
+              // SMS (which contains the amount) can't be revealed.
+              expanded: !hidden && _expandedId == tx.id,
+              onTap: hidden
+                  ? null
+                  : () => setState(
+                      () => _expandedId = _expandedId == tx.id ? null : tx.id,
+                    ),
             ),
         if (page.totalPages > 1) _Pagination(page: page, onChange: _goToPage),
       ],
@@ -190,14 +195,15 @@ class _TransactionsSectionState extends ConsumerState<TransactionsSection> {
   });
 }
 
-class _Totals extends StatelessWidget {
+class _Totals extends ConsumerWidget {
   const _Totals({required this.page, required this.currency});
 
   final TransactionsPage page;
   final String currency;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(balanceHiddenProvider);
     return Row(
       children: [
         Expanded(
@@ -206,6 +212,7 @@ class _Totals extends StatelessWidget {
             value: formatMoney(
               double.tryParse(page.totals.income) ?? 0,
               currency,
+              hidden: hidden,
             ),
             color: AppTheme.income,
           ),
@@ -217,6 +224,7 @@ class _Totals extends StatelessWidget {
             value: formatMoney(
               double.tryParse(page.totals.expense) ?? 0,
               currency,
+              hidden: hidden,
             ),
             color: AppTheme.expense,
           ),

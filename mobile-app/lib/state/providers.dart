@@ -119,3 +119,20 @@ class SelectedTab extends Notifier<int> {
 }
 
 final selectedTabProvider = NotifierProvider<SelectedTab, int>(SelectedTab.new);
+
+/// Whether monetary values are masked across the Finance tab. Persisted locally
+/// so the choice survives restarts.
+class BalanceHidden extends Notifier<bool> {
+  @override
+  bool build() => ref.watch(settingsRepositoryProvider).hideBalance;
+
+  Future<void> toggle() async {
+    final value = !state;
+    await ref.read(settingsRepositoryProvider).setHideBalance(value);
+    state = value;
+  }
+}
+
+final balanceHiddenProvider = NotifierProvider<BalanceHidden, bool>(
+  BalanceHidden.new,
+);

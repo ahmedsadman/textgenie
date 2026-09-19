@@ -9,6 +9,8 @@ import 'package:textgenie/state/finance_providers.dart';
 import 'package:textgenie/theme/catppuccin_theme.dart';
 import 'package:textgenie/ui/widgets/finance/credit_card_bills_section.dart';
 
+import 'support/balance_test_overrides.dart';
+
 Bank _credit(String name) => Bank(
   id: 1,
   name: name,
@@ -46,6 +48,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        overrideBalanceHidden(false),
         banksProvider.overrideWith(
           (ref) async => CachedResult(data: banks, stale: false),
         ),

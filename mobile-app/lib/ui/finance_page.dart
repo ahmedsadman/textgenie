@@ -65,9 +65,21 @@ class _FinancePageState extends ConsumerState<FinancePage> {
 
     final settings = ref.watch(settingsControllerProvider);
     final config = parseWebhookUrl(settings.webhookUrl);
+    final hidden = ref.watch(balanceHiddenProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Finance')),
+      appBar: AppBar(
+        title: const Text('Finance'),
+        actions: [
+          if (config != null)
+            IconButton(
+              tooltip: hidden ? 'Show balances' : 'Hide balances',
+              icon: Icon(hidden ? Icons.visibility_off : Icons.visibility),
+              onPressed: () =>
+                  ref.read(balanceHiddenProvider.notifier).toggle(),
+            ),
+        ],
+      ),
       body: config == null
           ? const ConnectPrompt(
               icon: Icons.account_balance_wallet_outlined,

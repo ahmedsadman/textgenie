@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/finance/bank.dart';
 import '../../../state/finance_providers.dart';
+import '../../../state/providers.dart';
 import '../../../utils/currency_format.dart';
 import 'bank_breakdown_list.dart';
 
@@ -61,9 +62,12 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
     final banks = ref.watch(banksProvider).value?.data;
     final currency = ref.watch(currencyProvider).value?.data ?? '';
     final averages = ref.watch(averagesProvider).value?.data;
+    final hidden = ref.watch(balanceHiddenProvider);
 
     final hasBanks = banks != null && banks.isNotEmpty;
-    final totalLabel = hasBanks ? formatMoney(_total(banks), currency) : '—';
+    final totalLabel = hasBanks
+        ? formatMoney(_total(banks), currency, hidden: hidden)
+        : '—';
 
     return Card(
       child: InkWell(
@@ -108,20 +112,28 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
                 ],
               ),
               if (_expanded && hasBanks)
-                BankBreakdownList(banks: banks, currency: currency),
+                BankBreakdownList(
+                  banks: banks,
+                  currency: currency,
+                  hidden: hidden,
+                ),
               const Divider(height: 24),
               _Stat(
                 label: 'Avg Spend/Month',
                 value: averages == null
                     ? '—'
-                    : formatAmount(averages.avgSpend, currency),
+                    : formatAmount(averages.avgSpend, currency, hidden: hidden),
               ),
               const SizedBox(height: 12),
               _Stat(
                 label: 'Avg Saving/Month',
                 value: averages == null
                     ? '—'
-                    : formatAmount(averages.avgSaving, currency),
+                    : formatAmount(
+                        averages.avgSaving,
+                        currency,
+                        hidden: hidden,
+                      ),
               ),
             ],
           ),
