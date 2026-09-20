@@ -155,6 +155,35 @@ void main() {
     expect(find.text('New'), findsOneWidget);
   });
 
+  testWidgets('the New chip uses the sky accent (not gray)', (tester) async {
+    await _pump(
+      tester,
+      _trends(income: _metric(TrendDirection.isNew, change: null)),
+    );
+
+    final chip = tester.widget<Text>(find.text('New'));
+    expect(chip.style?.color, AppTheme.flavor.sky);
+  });
+
+  testWidgets('expanded sparklines use per-metric accent colors', (
+    tester,
+  ) async {
+    await _pump(tester, _trends());
+
+    await tester.tap(find.text('Trends'));
+    await tester.pumpAndSettle();
+
+    final charts = tester
+        .widgetList<LineChart>(find.byType(LineChart))
+        .toList();
+    expect(charts.length, 3);
+    Color barColor(LineChart c) => c.data.lineBarsData.first.color!;
+    // Tile order: Income, Spend, Savings.
+    expect(barColor(charts[0]), AppTheme.income);
+    expect(barColor(charts[1]), AppTheme.expense);
+    expect(barColor(charts[2]), AppTheme.flavor.lavender);
+  });
+
   testWidgets('shows a skeleton while trends are loading', (tester) async {
     tester.view.physicalSize = const Size(1200, 4000);
     tester.view.devicePixelRatio = 1.0;

@@ -65,6 +65,8 @@ class _BankRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _BankAvatar(name: bank.name),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +84,11 @@ class _BankRow extends StatelessWidget {
                     ),
                     if (bank.isCredit) ...[
                       const SizedBox(width: 8),
-                      FinanceBadge('Credit', color: AppTheme.flavor.peach),
+                      FinanceBadge(
+                        'Credit',
+                        icon: Icons.credit_card,
+                        color: AppTheme.flavor.peach,
+                      ),
                     ],
                   ],
                 ),
@@ -90,14 +96,14 @@ class _BankRow extends StatelessWidget {
                   Text(
                     '•••• ${bank.last4 ?? '----'} · not counted',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                      color: AppTheme.flavor.subtext0,
                     ),
                   )
                 else if (bank.lastBalanceAt != null)
                   Text(
                     'Updated ${relativeTime(bank.lastBalanceAt!.toLocal())}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                      color: AppTheme.flavor.subtext0,
                     ),
                   ),
               ],
@@ -113,6 +119,35 @@ class _BankRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// A 28px circle showing the bank's initial letter — a lightweight stand-in for
+/// a logo (the model carries no logo).
+class _BankAvatar extends StatelessWidget {
+  const _BankAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final initial = name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+    return Container(
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.flavor.surface1,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        initial,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

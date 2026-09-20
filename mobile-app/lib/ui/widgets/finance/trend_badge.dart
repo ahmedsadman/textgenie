@@ -29,8 +29,9 @@ class TrendBadge extends StatelessWidget {
 
   Color _color(BuildContext context) {
     switch (direction) {
-      case TrendDirection.flat:
       case TrendDirection.isNew:
+        return AppTheme.flavor.sky;
+      case TrendDirection.flat:
         return Theme.of(context).colorScheme.outline;
       case TrendDirection.up:
         return goodWhen == GoodWhen.up ? AppTheme.income : AppTheme.expense;
