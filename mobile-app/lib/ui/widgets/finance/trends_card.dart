@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/finance/trends.dart';
 import '../../../state/finance_providers.dart';
 import '../../../state/providers.dart';
+import '../../../theme/catppuccin_theme.dart';
 import '../../../utils/currency_format.dart';
 import '../skeleton.dart';
 import 'finance_placeholders.dart';
@@ -57,17 +58,27 @@ class _TrendsCardState extends ConsumerState<TrendsCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Trends',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.insights,
+                              size: 18,
+                              color: AppTheme.flavor.mauve,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Trends',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Last 3 months · vs previous 3 months',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
+                            color: AppTheme.flavor.subtext0,
                           ),
                         ),
                       ],
@@ -79,7 +90,7 @@ class _TrendsCardState extends ConsumerState<TrendsCard> {
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
                         Icons.expand_more,
-                        color: theme.colorScheme.outline,
+                        color: AppTheme.flavor.subtext0,
                       ),
                     ),
                 ],
@@ -102,6 +113,8 @@ class _TrendsCardState extends ConsumerState<TrendsCard> {
     children: [
       _AmountTile(
         label: 'Income / Month',
+        icon: Icons.south_west,
+        accent: AppTheme.income,
         metric: trends.income,
         currency: currency,
         hidden: hidden,
@@ -111,6 +124,8 @@ class _TrendsCardState extends ConsumerState<TrendsCard> {
       const SizedBox(height: 16),
       _AmountTile(
         label: 'Spend / Month',
+        icon: Icons.north_east,
+        accent: AppTheme.expense,
         metric: trends.spend,
         currency: currency,
         hidden: hidden,
@@ -133,6 +148,8 @@ class _TrendsCardState extends ConsumerState<TrendsCard> {
 class _AmountTile extends StatelessWidget {
   const _AmountTile({
     required this.label,
+    required this.icon,
+    required this.accent,
     required this.metric,
     required this.currency,
     required this.hidden,
@@ -141,6 +158,8 @@ class _AmountTile extends StatelessWidget {
   });
 
   final String label;
+  final IconData icon;
+  final Color accent;
   final TrendMetric metric;
   final String currency;
   final bool hidden;
@@ -153,11 +172,17 @@ class _AmountTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.outline,
-          ),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: accent),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AppTheme.flavor.subtext0,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 2),
         Row(
@@ -165,6 +190,7 @@ class _AmountTile extends StatelessWidget {
             Text(
               formatAmount(metric.recentAvg, currency, hidden: hidden),
               style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -179,13 +205,16 @@ class _AmountTile extends StatelessWidget {
         ),
         if (expanded) ...[
           const SizedBox(height: 8),
-          _Sparkline(values: metric.spark.map(double.tryParse).toList()),
+          _Sparkline(
+            values: metric.spark.map(double.tryParse).toList(),
+            color: accent,
+          ),
           const SizedBox(height: 4),
           Text(
             'Last 3 mo: ${formatAmount(metric.recentAvg, currency, hidden: hidden)}/mo · '
             'Prior: ${formatAmount(metric.priorAvg, currency, hidden: hidden)}/mo',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
+              color: AppTheme.flavor.subtext0,
             ),
           ),
         ],
@@ -220,11 +249,21 @@ class _SavingsRateTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Savings Rate',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.outline,
-          ),
+        Row(
+          children: [
+            Icon(
+              Icons.savings_outlined,
+              size: 14,
+              color: AppTheme.flavor.lavender,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Savings Rate',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AppTheme.flavor.subtext0,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 2),
         Row(
@@ -232,6 +271,7 @@ class _SavingsRateTile extends StatelessWidget {
             Text(
               _formatRate(rate.recent),
               style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -250,19 +290,20 @@ class _SavingsRateTile extends StatelessWidget {
             values: rate.spark
                 .map((s) => s == null ? null : (double.tryParse(s) ?? 0) * 100)
                 .toList(),
+            color: AppTheme.flavor.lavender,
             zeroLine: true,
           ),
           const SizedBox(height: 4),
           Text(
             'Last 3 mo: ${_formatRate(rate.recent)} · Prior: ${_formatRate(rate.prior)}',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
+              color: AppTheme.flavor.subtext0,
             ),
           ),
           Text(
             '${formatMoney(net, currency, hidden: hidden)} net/mo',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
+              color: AppTheme.flavor.subtext0,
             ),
           ),
         ],
@@ -272,16 +313,20 @@ class _SavingsRateTile extends StatelessWidget {
 }
 
 /// A minimal trend line: no axes, grid or touch — just the last months' shape.
-/// `null` values render as gaps. Neutral color; the badge carries the verdict.
+/// `null` values render as gaps. Tinted to its metric's accent color.
 class _Sparkline extends StatelessWidget {
-  const _Sparkline({required this.values, this.zeroLine = false});
+  const _Sparkline({
+    required this.values,
+    required this.color,
+    this.zeroLine = false,
+  });
 
   final List<double?> values;
+  final Color color;
   final bool zeroLine;
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outline;
     final present = values.whereType<double>().toList();
     if (present.isEmpty) return const SizedBox(height: 36);
 

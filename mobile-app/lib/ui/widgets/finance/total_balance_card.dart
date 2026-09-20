@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/finance/bank.dart';
 import '../../../state/finance_providers.dart';
 import '../../../state/providers.dart';
+import '../../../theme/catppuccin_theme.dart';
 import '../../../utils/currency_format.dart';
+import '../../../utils/time_format.dart';
 import 'bank_breakdown_list.dart';
 
 /// Total deposit balance across accounts. Tapping toggles a per-bank breakdown
@@ -23,6 +25,18 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
       .where((b) => b.isDeposit && b.lastBalance != null)
       .fold(0.0, (sum, b) => sum + (double.tryParse(b.lastBalance!) ?? 0));
 
+  /// Most-recent balance update across deposit accounts, or null if none.
+  static DateTime? _lastUpdated(List<Bank> banks) {
+    DateTime? latest;
+    for (final b in banks) {
+      final at = b.lastBalanceAt;
+      if (b.isDeposit && at != null && (latest == null || at.isAfter(latest))) {
+        latest = at;
+      }
+    }
+    return latest;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -34,6 +48,7 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
     final totalLabel = hasBanks
         ? formatMoney(_total(banks), currency, hidden: hidden)
         : '—';
+    final lastUpdated = hasBanks ? _lastUpdated(banks) : null;
 
     return Card(
       child: InkWell(
@@ -50,11 +65,21 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Total Balance',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet_outlined,
+                              size: 16,
+                              color: AppTheme.flavor.mauve,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Total Balance',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppTheme.flavor.subtext0,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -63,6 +88,25 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (lastUpdated != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                size: 12,
+                                color: AppTheme.flavor.subtext0,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Updated ${relativeTime(lastUpdated.toLocal())}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.flavor.subtext0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -72,7 +116,7 @@ class _TotalBalanceCardState extends ConsumerState<TotalBalanceCard> {
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
                         Icons.expand_more,
-                        color: theme.colorScheme.outline,
+                        color: AppTheme.flavor.subtext0,
                       ),
                     ),
                 ],

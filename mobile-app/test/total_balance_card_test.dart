@@ -88,6 +88,27 @@ void main() {
     expect(find.text('—'), findsOneWidget);
   });
 
+  testWidgets('shows the latest update time in both collapsed and expanded '
+      'states', (tester) async {
+    await _pump(tester, [_deposit('Checking', '1000.00')]);
+
+    // Collapsed: only the top-level "Updated …" subtitle is visible.
+    expect(find.textContaining('Updated '), findsOneWidget);
+
+    await tester.tap(find.text('Total Balance'));
+    await tester.pumpAndSettle();
+
+    // Expanded: the top-level subtitle plus the bank row's own subline.
+    expect(find.textContaining('Updated '), findsNWidgets(2));
+  });
+
+  testWidgets('omits the update subtitle when no deposit has a timestamp', (
+    tester,
+  ) async {
+    await _pump(tester, [_credit('Visa')]);
+    expect(find.textContaining('Updated '), findsNothing);
+  });
+
   testWidgets('masks the total when balances are hidden', (tester) async {
     await _pump(tester, [_deposit('Checking', '1000.00')], hidden: true);
 
